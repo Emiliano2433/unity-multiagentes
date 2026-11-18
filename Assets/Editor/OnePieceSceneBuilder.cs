@@ -20,7 +20,8 @@ public static class OnePieceSceneBuilder
     const string GenFolder   = "Assets/Generated";
 
     const float ShipScale    = 7.5f;    // ~40 m de eslora (agrandado para que quepan las 5 sillas)
-    const float RowAlongBow  = 0.2f;    // fila de sillas: 0 = mástil, 1 = punta de la proa
+    const float RowAlongBow  = 0.2f;    // (respaldo) fila de sillas: 0 = mástil, 1 = punta de la proa
+    const float RowAlongForeDeck = 0.25f; // fila de sillas en la cubierta de proa: 0 = escalón, 1 = cabra
     const float ChairBackGap = 0.04f;   // espacio entre respaldo y espalda
 
     static OnePieceSceneBuilder()
@@ -166,12 +167,20 @@ public static class OnePieceSceneBuilder
             ? deckProfile.Select(p => p.y).OrderBy(y => y).ElementAt(deckProfile.Count / 2)
             : bottom + height * 0.25f;
 
-        // ---------- Tripulación sentada: 5 sillas en arco en la cubierta principal, mirando a la proa ----------
+        // ---------- Tripulación sentada: 5 sillas en arco sobre la cubierta elevada de proa, mirando a la cabra ----------
         var crew = LoadCrew();
         float gap = 0.55f;
         var chairW = crew.Select(c => ChairWidth(c.meta)).ToArray();
         float total = chairW.Sum() + gap * (crew.Count - 1);
         float rowX = mastX + (b.max.x - mastX) * RowAlongBow;
+        float rowDeck = mainDeck;
+        var fore = ForeDeck(deckProfile, mastX);
+        if (fore.HasValue)
+        {
+            rowDeck = fore.Value.y;
+            rowX = Mathf.Lerp(fore.Value.x0, fore.Value.x1, RowAlongForeDeck);
+        }
+        else Debug.LogWarning("[OnePiece] No se detectó la cubierta de proa; se usa la cubierta principal.");
         var seats = new List<(Vector3 pos, float yaw)>();
         float zc = b.center.z + total * 0.5f;              // de babor (+Z) a estribor (-Z)
         for (int i = 0; i < crew.Count; i++)
@@ -186,10 +195,10 @@ public static class OnePieceSceneBuilder
                 foreach (float oz in new[] { -0.4f, 0f, 0.4f })
                 {
                     var d = DeckHeight(CastDown(new Vector3(x + ox, b.max.y + 1, z + oz), height + 2), bottom, height);
-                    if (d.HasValue) deck = Mathf.Max(deck, d.Value);
+                    // ignorar barandales, escalones o escotillas: solo el piso de esa cubierta
+                    if (d.HasValue && Mathf.Abs(d.Value - rowDeck) < 0.3f) deck = Mathf.Max(deck, d.Value);
                 }
-            // si el rayo cae por una escotilla al piso interior, usar la cubierta principal
-            if (deck == float.MinValue || deck < mainDeck - 0.3f || deck > mainDeck + 1.2f) deck = mainDeck;
+            if (deck == float.MinValue) deck = rowDeck;
             seats.Add((new Vector3(x, deck, z), yaw));
         }
 
@@ -198,7 +207,7 @@ public static class OnePieceSceneBuilder
         // Línea de flotación: ~40% entre la quilla y la cubierta principal
         float waterline = bottom + (mainDeck - bottom) * 0.42f;
         ship.transform.position += Vector3.down * waterline;
-        Debug.Log($"[OnePiece] Barco: {b.size.x:0.0} m de eslora · cubierta {mainDeck - waterline:0.00} m sobre el agua · fila de sillas en x={rowX:0.0}");
+        Debug.Log($"[OnePiece] Barco: {b.size.x:0.0} m de eslora · cubierta {mainDeck - waterline:0.00} m sobre el agua · fila de sillas en x={rowX:0.0}, y={rowDeck - waterline:0.00}");
 
         var buoy = shipRoot.AddComponent<ShipBuoyancy>();
         buoy.halfLength = b.size.x * 0.4f;
@@ -239,7 +248,6 @@ public static class OnePieceSceneBuilder
             }
             if (crew[i].name == "Arlong") arlong = ch;
         }
-        float deckY = mainDeck - waterline;
 
         // ---------- Espuma en la proa ----------
         BuildBowSpray(shipRoot.transform, new Vector3(b.max.x - b.size.x * 0.06f, 0.2f, b.center.z), b.size.z);
@@ -257,7 +265,7 @@ public static class OnePieceSceneBuilder
         camData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
         var cine = camGo.AddComponent<CinematicCamera>();
         cine.target = shipRoot.transform;
-        cine.targetOffset = new Vector3(groupCenter.x, deckY + 1.2f, groupCenter.z);
+        cine.targetOffset = groupCenter + Vector3.up * 1.2f;
         cine.distance = b.size.x * 0.55f;
         cine.yaw = -62f;
         cine.pitch = 20f;
@@ -405,6 +413,21 @@ public static class OnePieceSceneBuilder
         foreach (var h in hits)
             if (h.normal.y > 0.65f && h.point.y < bottom + height * 0.5f && h.point.y > best) best = h.point.y;
         return best == float.MinValue ? (float?)null : best;
+    }
+
+    /// Cubierta elevada de proa (la de la cabra): el tramo plano de al menos 3 m que llega más
+    /// hacia adelante, delante del mástil. Devuelve su altura y su inicio/fin en X.
+    static (float y, float x0, float x1)? ForeDeck(List<(float x, float y)> profile, float mastX)
+    {
+        var runs = new List<(float y, float x0, float x1)>();
+        foreach (var (x, y) in profile.Where(p => p.x > mastX).OrderBy(p => p.x))
+        {
+            if (runs.Count > 0 && Mathf.Abs(y - runs[^1].y) < 0.3f) runs[^1] = (runs[^1].y, runs[^1].x0, x);
+            else runs.Add((y, x, x));
+        }
+        var flat = runs.Where(r => r.x1 - r.x0 >= 3f).ToList();
+        foreach (var r in flat) Debug.Log($"[OnePiece] Tramo plano: y={r.y:0.00}  x={r.x0:0.0}…{r.x1:0.0}");
+        return flat.Count > 0 ? flat.OrderBy(r => r.x1).Last() : null;
     }
 
     static Bounds WorldBounds(GameObject go)
