@@ -23,6 +23,10 @@ public static class OnePieceSceneBuilder
     const float RowAlongBow  = 0.2f;    // (respaldo) fila de sillas: 0 = mástil, 1 = punta de la proa
     const float RowAlongForeDeck = 0.25f; // fila de sillas en la cubierta de proa: 0 = escalón, 1 = cabra
     const float ChairBackGap = 0.04f;   // espacio entre respaldo y espalda
+    const float LengthK      = 1.2f;    // barco más largo…
+    const float BeamK        = 1.45f;   // …y más ancho, para que quepan los Sharks y el emprendedor
+    const float SpotAlongForeDeck    = 0.74f; // dónde se para el emprendedor (0 = escalón, 1 = cabra)
+    const float LandingAlongForeDeck = 0.58f; // dónde termina la escalera exterior
 
     static OnePieceSceneBuilder()
     {
@@ -133,6 +137,7 @@ public static class OnePieceSceneBuilder
         var ship = (GameObject)PrefabUtility.InstantiatePrefab(shipAsset, shipRoot.transform);
         ship.name = "Modelo Going Merry";
         ship.transform.localScale = Vector3.one * ShipScale;
+        EstirarBarco(ship.transform, LengthK, BeamK);
 
         // Centrar en XZ
         Bounds b = WorldBounds(ship);
@@ -181,6 +186,17 @@ public static class OnePieceSceneBuilder
             rowX = Mathf.Lerp(fore.Value.x0, fore.Value.x1, RowAlongForeDeck);
         }
         else Debug.LogWarning("[OnePiece] No se detectó la cubierta de proa; se usa la cubierta principal.");
+
+        // Punto donde el emprendedor presenta su pitch: delante de los Sharks, hacia la cabra
+        float fx0 = fore.HasValue ? fore.Value.x0 : rowX - 2f;
+        float fx1 = fore.HasValue ? fore.Value.x1 : rowX + 6f;
+        var spot = new Vector3(Mathf.Lerp(fx0, fx1, SpotAlongForeDeck), rowDeck, b.center.z);
+        {
+            var d = DeckHeight(CastDown(new Vector3(spot.x, b.max.y + 1, spot.z), height + 2), bottom, height);
+            if (d.HasValue && Mathf.Abs(d.Value - rowDeck) < 0.3f) spot.y = d.Value;
+        }
+        float waterline = bottom + (mainDeck - bottom) * 0.42f;   // ~40% entre la quilla y la cubierta principal
+
         var seats = new List<(Vector3 pos, float yaw)>();
         float zc = b.center.z + total * 0.5f;              // de babor (+Z) a estribor (-Z)
         for (int i = 0; i < crew.Count; i++)
@@ -189,7 +205,7 @@ public static class OnePieceSceneBuilder
             zc -= chairW[i] + gap;
             float dz = z - b.center.z;
             float x = rowX - dz * dz * 0.06f;               // arco suave
-            float yaw = 90f + Mathf.Atan2(dz, 9f) * Mathf.Rad2Deg; // todos miran a un punto delante del grupo
+            float yaw = Mathf.Atan2(spot.x - x, spot.z - z) * Mathf.Rad2Deg; // todos miran al emprendedor
             float deck = float.MinValue;
             foreach (float ox in new[] { -0.5f, 0f, 0.5f })
                 foreach (float oz in new[] { -0.4f, 0f, 0.4f })
@@ -202,10 +218,12 @@ public static class OnePieceSceneBuilder
             seats.Add((new Vector3(x, deck, z), yaw));
         }
 
+        // Escalera exterior por estribor (-Z): se mide el casco mientras existen los colliders temporales
+        var subida = PlanearSubida(b, rowDeck, Mathf.Lerp(fx0, fx1, LandingAlongForeDeck), spot, waterline);
+
         foreach (var c in tempColliders) Object.DestroyImmediate(c);
 
-        // Línea de flotación: ~40% entre la quilla y la cubierta principal
-        float waterline = bottom + (mainDeck - bottom) * 0.42f;
+        // Línea de flotación
         ship.transform.position += Vector3.down * waterline;
         Debug.Log($"[OnePiece] Barco: {b.size.x:0.0} m de eslora · cubierta {mainDeck - waterline:0.00} m sobre el agua · fila de sillas en x={rowX:0.0}, y={rowDeck - waterline:0.00}");
 
@@ -218,6 +236,7 @@ public static class OnePieceSceneBuilder
         crewRoot.transform.SetParent(shipRoot.transform, false);
         GameObject arlong = null;
         Vector3 groupCenter = Vector3.zero;
+        var enEscena = new List<EscenarioPitch.SharkEnEscena>();
         for (int i = 0; i < crew.Count; i++)
         {
             var (pos, yaw) = seats[i];
@@ -247,7 +266,18 @@ public static class OnePieceSceneBuilder
                 br.phase = i * 1.7f;
             }
             if (crew[i].name == "Arlong") arlong = ch;
+            enEscena.Add(new EscenarioPitch.SharkEnEscena
+            {
+                nombre = crew[i].name, personaje = ch.transform, silla = chair.transform, color = ColorDe(crew[i].name),
+            });
         }
+
+        // ---------- Escalera, bote y emprendedor ----------
+        var escenario = ConstruirSubida(shipRoot.transform, subida, waterline, mats);
+        escenario.sharks = enEscena.ToArray();
+        foreach (var sh in escenario.sharks)
+            if (!EscenarioPitch.MedirCabeza(sh)) Debug.LogWarning($"[OnePiece] Cabeza de {sh.nombre}: se usarán los bounds.");
+            else Debug.Log($"[OnePiece] Cabeza de {sh.nombre}: {sh.cabezaEnSilla} (altura sentado {sh.altura:0.00} m)");
 
         // ---------- Espuma en la proa ----------
         BuildBowSpray(shipRoot.transform, new Vector3(b.max.x - b.size.x * 0.06f, 0.2f, b.center.z), b.size.z);
@@ -266,10 +296,21 @@ public static class OnePieceSceneBuilder
         var cine = camGo.AddComponent<CinematicCamera>();
         cine.target = shipRoot.transform;
         cine.targetOffset = groupCenter + Vector3.up * 1.2f;
-        cine.distance = b.size.x * 0.55f;
+        cine.distance = b.size.x * 0.75f;
         cine.yaw = -62f;
         cine.pitch = 20f;
         cine.Place();
+
+        // ---------- Director del show (conecta con el backend) ----------
+        var dirGo = new GameObject("Director Shark Tank");
+        var director = dirGo.AddComponent<ShowDirector>();
+        director.escenario = escenario;
+        director.camara = cam;
+        director.orbita = cine;
+        if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urpAsset)
+            director.materialParticulas = urpAsset.defaultParticleMaterial;
+        PlayerSettings.insecureHttpOption = InsecureHttpOption.AlwaysAllowed; // http://127.0.0.1 sin TLS
+        PlayerSettings.runInBackground = true;
 
         // ---------- Post-procesado ----------
         var volGo = new GameObject("Post Procesado");
@@ -400,6 +441,305 @@ public static class OnePieceSceneBuilder
         go.transform.localPosition = center;
         go.transform.localScale = size;
         go.GetComponent<Renderer>().sharedMaterial = mat;
+    }
+
+    // ---------------------------------------------------------------- barco más grande
+
+    /// Escala el modelo en X (eslora) y Z (manga) del mundo, sin importar cómo venga rotado el .glb.
+    static void EstirarBarco(Transform t, float largo, float ancho)
+    {
+        var s = t.localScale;
+        for (int i = 0; i < 3; i++)
+        {
+            var eje = Vector3.zero; eje[i] = 1;
+            Vector3 w = t.rotation * eje;
+            if (Mathf.Abs(w.x) > 0.7f) s[i] *= largo;
+            else if (Mathf.Abs(w.z) > 0.7f) s[i] *= ancho;
+        }
+        t.localScale = s;
+    }
+
+    static Color ColorDe(string nombre) => nombre switch
+    {
+        "Luffy"       => new Color(0.91f, 0.24f, 0.2f),
+        "Shanks"      => new Color(0.95f, 0.62f, 0.2f),
+        "Zoro"        => new Color(0.27f, 0.66f, 0.3f),
+        "Barbablanca" => new Color(0.93f, 0.94f, 0.96f),
+        "Arlong"      => new Color(0.3f, 0.52f, 0.9f),
+        _             => Color.white,
+    };
+
+    // ---------------------------------------------------------------- escalera exterior + emprendedor
+
+    /// Medidas de la subida, en coordenadas de mundo ANTES de bajar el barco a la línea de flotación.
+    class Subida
+    {
+        public float xLand, zc, zRail, railTop, hLand, baseY, xBase, xTop, rise, deck, zEndLand, riseIn;
+        public int n, nIn;
+        public Vector3 bote;
+        public Vector3[] ruta;
+    }
+
+    const float StairW = 1.3f, StairRun = 0.27f, StairRise = 0.3f, LandHalf = 0.65f;
+
+    static Subida PlanearSubida(Bounds b, float deck, float xLand, Vector3 spot, float waterline)
+    {
+        var s = new Subida { xLand = xLand, deck = deck };
+
+        // Barandal de estribor a la altura de la cubierta de proa: altura del pasamanos y su cara exterior
+        // (se busca de deck+1.7 hacia abajo y se toma la mediana, para ignorar adornos altos como las volutas)
+        var topes = new List<float>(); var caras = new List<float>();
+        foreach (float ox in new[] { -LandHalf, -LandHalf * 0.5f, 0f, LandHalf * 0.5f, LandHalf })
+        {
+            for (float h = deck + 1.7f; h > deck + 0.3f; h -= 0.03f)
+            {
+                var z = RayLateral(xLand + ox, h, b);
+                if (!z.HasValue) continue;
+                topes.Add(h);
+                caras.Add(RayLateral(xLand + ox, h - 0.03f, b) ?? z.Value);
+                break;
+            }
+        }
+        if (topes.Count == 0) { s.railTop = deck + 1.1f; s.zRail = b.min.z + 1f; Debug.LogWarning("[OnePiece] No se detectó el barandal de estribor."); }
+        else { topes.Sort(); caras.Sort(); s.railTop = topes[topes.Count / 2]; s.zRail = caras[0]; }
+
+        s.hLand = s.railTop + 0.12f;
+        s.baseY = waterline + 0.08f;                               // piso del bote
+        s.n = Mathf.CeilToInt((s.hLand - s.baseY) / StairRise);
+        s.rise = (s.hLand - s.baseY) / s.n;
+        s.xTop = xLand - LandHalf;
+        s.xBase = s.xTop - s.n * StairRun;
+
+        // Lo más ancho del casco a lo largo de la escalera (para que no lo atraviese)
+        float zHull = s.zRail;
+        for (float x = s.xBase - 2f; x <= xLand + LandHalf; x += 0.4f)
+            for (float h = waterline + 0.1f; h <= s.railTop; h += 0.3f)
+            {
+                var z = RayLateral(x, h, b);
+                if (z.HasValue) zHull = Mathf.Min(zHull, z.Value);
+            }
+        s.zc = zHull - 0.15f - StairW * 0.5f;
+
+        // Del descanso (encima del barandal) se baja por una escalerita interior hasta la cubierta
+        s.zEndLand = s.zRail + 0.75f;
+        s.nIn = Mathf.Max(1, Mathf.CeilToInt((s.hLand - deck) / 0.26f));
+        s.riseIn = (s.hLand - deck) / s.nIn;
+        float zPie = s.zEndLand + s.nIn * StairRun + 0.25f;
+
+        s.bote = new Vector3(s.xBase - 1.6f, s.baseY, s.zc);         // donde espera parado (parte delantera del bote)
+        s.ruta = new[]
+        {
+            new Vector3(s.xBase - 0.35f, s.baseY, s.zc),
+            new Vector3(s.xBase + StairRun * 0.3f, s.baseY + s.rise * 0.7f, s.zc),
+            new Vector3(s.xTop - StairRun * 0.4f, s.hLand, s.zc),
+            new Vector3(xLand, s.hLand, s.zc),
+            new Vector3(xLand, s.hLand, s.zEndLand - 0.1f),
+            new Vector3(xLand, deck, zPie),
+            spot,
+        };
+        Debug.Log($"[OnePiece] Escalera: {s.n} escalones de {s.rise:0.00} m · barandal y={s.railTop:0.00} z={s.zRail:0.00} · casco z={zHull:0.00} · punto del pitch {spot}");
+        return s;
+    }
+
+    /// Primer impacto (desde estribor hacia el centro) de un rayo horizontal a la altura h.
+    static float? RayLateral(float x, float h, Bounds b)
+    {
+        var origen = new Vector3(x, h, b.min.z - 5f);
+        float best = float.MaxValue;
+        foreach (var hit in Physics.RaycastAll(origen, Vector3.forward, b.extents.z + 5f, ~0, QueryTriggerInteraction.Ignore))
+            if (hit.point.z < b.center.z - 0.3f && hit.point.z < best) best = hit.point.z;
+        return best == float.MaxValue ? (float?)null : best;
+    }
+
+    static EscenarioPitch ConstruirSubida(Transform shipRoot, Subida s, float waterline, (Material wood, Material dark, Material cushion) mats)
+    {
+        Vector3 L(Vector3 w) => w + Vector3.down * waterline;     // mundo (antes de bajar el barco) -> local al barco
+        var root = new GameObject("Subida al barco");
+        root.transform.SetParent(shipRoot, false);
+
+        // --- escalera exterior (sube hacia la proa, pegada al casco)
+        var esc = new GameObject("Escalera exterior");
+        esc.transform.SetParent(root.transform, false);
+        for (int i = 0; i < s.n; i++)
+        {
+            float top = s.baseY + (i + 1) * s.rise;
+            Box(esc, "Escalón", L(new Vector3(s.xBase + (i + 0.5f) * StairRun, top - 0.035f, s.zc)), new Vector3(StairRun + 0.03f, 0.07f, StairW), mats.wood);
+        }
+        float largo = Mathf.Sqrt(Mathf.Pow(s.n * StairRun, 2) + Mathf.Pow(s.hLand - s.baseY, 2));
+        float ang = Mathf.Atan2(s.hLand - s.baseY, s.n * StairRun) * Mathf.Rad2Deg;
+        var medio = new Vector3(s.xBase + s.n * StairRun * 0.5f, (s.baseY + s.hLand) * 0.5f, s.zc);
+        foreach (float lado in new[] { -1f, 1f })
+        {
+            float z = s.zc + lado * (StairW * 0.5f + 0.05f);
+            BoxRot(esc, "Larguero", L(new Vector3(medio.x, medio.y - 0.12f, z)), new Vector3(largo + 0.3f, 0.32f, 0.09f), Quaternion.Euler(0, 0, ang), mats.dark);
+            BoxRot(esc, "Pasamanos", L(new Vector3(medio.x, medio.y + 0.95f, z)), new Vector3(largo, 0.07f, 0.07f), Quaternion.Euler(0, 0, ang), mats.wood);
+            for (int i = 0; i <= s.n; i += 4)
+            {
+                float x = s.xBase + i * StairRun, y = s.baseY + i * s.rise;
+                Box(esc, "Balaustre", L(new Vector3(x, y + 0.5f, z)), new Vector3(0.07f, 1f, 0.07f), mats.dark);
+            }
+            // pilotes hasta el agua
+            for (int i = 0; i <= s.n; i += 8)
+            {
+                float x = s.xBase + i * StairRun, y = s.baseY + i * s.rise;
+                float alto = y - (waterline - 1.5f);
+                Box(esc, "Pilote", L(new Vector3(x, y - alto * 0.5f, z)), new Vector3(0.14f, alto, 0.14f), mats.dark);
+            }
+        }
+
+        // --- descanso por encima del barandal
+        float zFuera = s.zc - StairW * 0.5f - 0.05f;
+        var desc = new GameObject("Descanso");
+        desc.transform.SetParent(root.transform, false);
+        Box(desc, "Piso", L(new Vector3(s.xLand, s.hLand - 0.06f, (zFuera + s.zEndLand) * 0.5f)), new Vector3(LandHalf * 2f, 0.12f, s.zEndLand - zFuera), mats.wood);
+        foreach (float ox in new[] { -LandHalf, LandHalf })
+        {
+            float alto = s.hLand - (waterline - 1.5f);
+            Box(desc, "Pilote", L(new Vector3(s.xLand + ox, s.hLand - alto * 0.5f, zFuera)), new Vector3(0.16f, alto, 0.16f), mats.dark);
+            Box(desc, "Poste", L(new Vector3(s.xLand + ox, s.hLand + 0.5f, zFuera)), new Vector3(0.08f, 1f, 0.08f), mats.dark);
+        }
+        Box(desc, "Pasamanos", L(new Vector3(s.xLand + 0.05f, s.hLand + 1f, zFuera)), new Vector3(LandHalf * 2f + 0.1f, 0.07f, 0.07f), mats.wood);
+        // escalerita interior hasta la cubierta
+        for (int k = 0; k < s.nIn - 1; k++)
+        {
+            float top = s.hLand - (k + 1) * s.riseIn;
+            Box(desc, "Escalón interior", L(new Vector3(s.xLand, top - 0.035f, s.zEndLand + (k + 0.5f) * StairRun)), new Vector3(StairW, 0.07f, StairRun + 0.03f), mats.wood);
+        }
+        foreach (float ox in new[] { -1f, 1f })
+        {
+            float largoIn = Mathf.Sqrt(Mathf.Pow(s.nIn * StairRun, 2) + Mathf.Pow(s.hLand - s.deck, 2));
+            float angIn = Mathf.Atan2(s.hLand - s.deck, s.nIn * StairRun) * Mathf.Rad2Deg;
+            var c = new Vector3(s.xLand + ox * (StairW * 0.5f + 0.04f), (s.hLand + s.deck) * 0.5f - 0.1f, s.zEndLand + s.nIn * StairRun * 0.5f);
+            BoxRot(desc, "Larguero interior", L(c), new Vector3(0.08f, 0.26f, largoIn), Quaternion.Euler(angIn, 0, 0), mats.dark);
+        }
+
+        // --- bote de remos al pie de la escalera
+        var bote = new GameObject("Bote");
+        bote.transform.SetParent(root.transform, false);
+        bote.transform.localPosition = L(new Vector3(s.xBase - 2.3f, waterline, s.zc));
+        var blanco = MatSimple("BoteBlanco", new Color(0.92f, 0.9f, 0.84f), 0.3f);
+        Box(bote, "Fondo", new Vector3(0, 0.02f, 0), new Vector3(3.0f, 0.12f, 1.3f), mats.dark);
+        Box(bote, "Costado babor", new Vector3(0, 0.25f, 0.65f), new Vector3(3.0f, 0.46f, 0.08f), mats.wood);
+        Box(bote, "Costado estribor", new Vector3(0, 0.25f, -0.65f), new Vector3(3.0f, 0.46f, 0.08f), mats.wood);
+        Box(bote, "Franja babor", new Vector3(0, 0.44f, 0.66f), new Vector3(3.02f, 0.08f, 0.09f), blanco);
+        Box(bote, "Franja estribor", new Vector3(0, 0.44f, -0.66f), new Vector3(3.02f, 0.08f, 0.09f), blanco);
+        Box(bote, "Popa", new Vector3(-1.5f, 0.25f, 0), new Vector3(0.08f, 0.46f, 1.3f), mats.wood);
+        BoxRot(bote, "Proa babor", new Vector3(1.78f, 0.25f, 0.33f), new Vector3(0.75f, 0.46f, 0.08f), Quaternion.Euler(0, 60f, 0), mats.wood);
+        BoxRot(bote, "Proa estribor", new Vector3(1.78f, 0.25f, -0.33f), new Vector3(0.75f, 0.46f, 0.08f), Quaternion.Euler(0, -60f, 0), mats.wood);
+        Box(bote, "Banca", new Vector3(-0.7f, 0.3f, 0), new Vector3(0.3f, 0.06f, 1.25f), mats.wood);
+        BoxRot(bote, "Remo", new Vector3(-0.5f, 0.42f, 0.95f), new Vector3(2.2f, 0.05f, 0.05f), Quaternion.Euler(0, 20f, -8f), mats.dark);
+        BoxRot(bote, "Remo", new Vector3(-0.5f, 0.42f, -0.95f), new Vector3(2.2f, 0.05f, 0.05f), Quaternion.Euler(0, -20f, -8f), mats.dark);
+        Box(bote, "Cuerda", new Vector3(1.5f, 0.6f, 0.35f), new Vector3(0.6f, 0.03f, 0.03f), mats.cushion);
+
+        // --- emprendedor
+        var emp = BuildEmprendedor(shipRoot);
+        emp.Colocar(L(s.bote), L(s.ruta[0]));
+
+        // --- escenario
+        var escGo = new GameObject("Escenario Pitch");
+        escGo.transform.SetParent(shipRoot, false);
+        var escenario = escGo.AddComponent<EscenarioPitch>();
+        escenario.barco = shipRoot;
+        escenario.emprendedor = emp;
+        escenario.puntoBote = L(s.bote);
+        escenario.rutaSubida = s.ruta.Select(L).ToArray();
+        escenario.ladoEscalera = Vector3.back;
+        escenario.direccionProa = Vector3.right;
+        return escenario;
+    }
+
+    static Material MatSimple(string file, Color c, float smooth)
+    {
+        var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        m.SetColor("_BaseColor", c);
+        m.SetFloat("_Smoothness", smooth);
+        SaveAsset(m, $"{GenFolder}/{file}.mat");
+        return m;
+    }
+
+    /// Personaje del emprendedor hecho con primitivas (traje, corbata y maletín). Pies en y=0, mira a +Z.
+    static Emprendedor BuildEmprendedor(Transform parent)
+    {
+        var traje   = MatSimple("EmpTraje",   new Color(0.13f, 0.17f, 0.32f), 0.35f);
+        var camisa  = MatSimple("EmpCamisa",  new Color(0.95f, 0.95f, 0.97f), 0.2f);
+        var corbata = MatSimple("EmpCorbata", new Color(0.8f, 0.1f, 0.12f), 0.4f);
+        var piel    = MatSimple("EmpPiel",    new Color(0.93f, 0.74f, 0.6f), 0.25f);
+        var pelo    = MatSimple("EmpPelo",    new Color(0.17f, 0.11f, 0.07f), 0.3f);
+        var zapato  = MatSimple("EmpZapato",  new Color(0.06f, 0.05f, 0.05f), 0.6f);
+        var maletin = MatSimple("EmpMaletin", new Color(0.4f, 0.22f, 0.1f), 0.45f);
+        var negro   = MatSimple("EmpOjos",    new Color(0.05f, 0.05f, 0.06f), 0.8f);
+
+        var root = new GameObject("Emprendedor");
+        root.transform.SetParent(parent, false);
+        root.transform.localScale = Vector3.one * 0.92f;
+        var e = root.AddComponent<Emprendedor>();
+
+        var cuerpo = Pivote(root.transform, "Cuerpo", new Vector3(0, 0.92f, 0));
+        Prim(PrimitiveType.Cube, cuerpo, "Cadera", new Vector3(0, 0, 0), new Vector3(0.36f, 0.18f, 0.22f), traje);
+        Prim(PrimitiveType.Cube, cuerpo, "Torso", new Vector3(0, 0.33f, 0), new Vector3(0.42f, 0.52f, 0.24f), traje);
+        Prim(PrimitiveType.Cube, cuerpo, "Camisa", new Vector3(0, 0.42f, 0.115f), new Vector3(0.14f, 0.3f, 0.02f), camisa);
+        Prim(PrimitiveType.Cube, cuerpo, "Corbata", new Vector3(0, 0.38f, 0.128f), new Vector3(0.06f, 0.3f, 0.02f), corbata);
+        Prim(PrimitiveType.Cylinder, cuerpo, "Cuello", new Vector3(0, 0.63f, 0), new Vector3(0.11f, 0.05f, 0.11f), piel);
+
+        var cabeza = Pivote(cuerpo, "Cabeza", new Vector3(0, 0.66f, 0));
+        Prim(PrimitiveType.Sphere, cabeza, "Cara", new Vector3(0, 0.14f, 0), new Vector3(0.22f, 0.27f, 0.23f), piel);
+        Prim(PrimitiveType.Sphere, cabeza, "Pelo", new Vector3(0, 0.21f, -0.015f), new Vector3(0.235f, 0.17f, 0.235f), pelo);
+        Prim(PrimitiveType.Sphere, cabeza, "Ojo izq", new Vector3(-0.048f, 0.16f, 0.1f), Vector3.one * 0.03f, negro);
+        Prim(PrimitiveType.Sphere, cabeza, "Ojo der", new Vector3(0.048f, 0.16f, 0.1f), Vector3.one * 0.03f, negro);
+        Prim(PrimitiveType.Sphere, cabeza, "Nariz", new Vector3(0, 0.12f, 0.115f), new Vector3(0.035f, 0.045f, 0.035f), piel);
+
+        Transform Brazo(string n, float x)
+        {
+            var p = Pivote(cuerpo, n, new Vector3(x, 0.55f, 0));
+            Prim(PrimitiveType.Cube, p, "Manga", new Vector3(0, -0.27f, 0), new Vector3(0.11f, 0.56f, 0.12f), traje);
+            Prim(PrimitiveType.Cube, p, "Puño", new Vector3(0, -0.55f, 0), new Vector3(0.1f, 0.03f, 0.11f), camisa);
+            Prim(PrimitiveType.Sphere, p, "Mano", new Vector3(0, -0.61f, 0), Vector3.one * 0.09f, piel);
+            return p;
+        }
+        var brazoI = Brazo("Brazo izq", -0.27f);
+        var brazoD = Brazo("Brazo der", 0.27f);
+        Prim(PrimitiveType.Cube, brazoD, "Maletín", new Vector3(0, -0.8f, 0), new Vector3(0.09f, 0.26f, 0.36f), maletin);
+        Prim(PrimitiveType.Cube, brazoD, "Asa", new Vector3(0, -0.655f, 0), new Vector3(0.03f, 0.03f, 0.1f), zapato);
+
+        Transform Pierna(string n, float x)
+        {
+            var p = Pivote(cuerpo, n, new Vector3(x, -0.04f, 0));
+            Prim(PrimitiveType.Cube, p, "Pantalón", new Vector3(0, -0.42f, 0), new Vector3(0.15f, 0.84f, 0.17f), traje);
+            Prim(PrimitiveType.Cube, p, "Zapato", new Vector3(0, -0.86f, 0.05f), new Vector3(0.13f, 0.08f, 0.27f), zapato);
+            return p;
+        }
+        var piernaI = Pierna("Pierna izq", -0.1f);
+        var piernaD = Pierna("Pierna der", 0.1f);
+
+        e.cuerpo = cuerpo; e.cabeza = cabeza;
+        e.brazoIzq = brazoI; e.brazoDer = brazoD;
+        e.piernaIzq = piernaI; e.piernaDer = piernaD;
+        return e;
+    }
+
+    static Transform Pivote(Transform parent, string name, Vector3 pos)
+    {
+        var t = new GameObject(name).transform;
+        t.SetParent(parent, false);
+        t.localPosition = pos;
+        return t;
+    }
+
+    static void Prim(PrimitiveType tipo, Transform parent, string name, Vector3 pos, Vector3 scale, Material mat)
+    {
+        var go = GameObject.CreatePrimitive(tipo);
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+        go.name = name;
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = pos;
+        go.transform.localScale = scale;
+        go.GetComponent<Renderer>().sharedMaterial = mat;
+    }
+
+    static void BoxRot(GameObject parent, string name, Vector3 center, Vector3 size, Quaternion rot, Material mat)
+    {
+        Box(parent, name, center, size, mat);
+        parent.transform.GetChild(parent.transform.childCount - 1).localRotation = rot;
     }
 
     // ---------------------------------------------------------------- helpers
@@ -571,6 +911,42 @@ public static class OnePieceSceneBuilder
             cam.transform.position = focus + Quaternion.Euler(30, -55, 0) * Vector3.back * (cb.size.z * 1.0f + 4f);
             cam.transform.LookAt(focus);
             Render(cam, Path.Combine(dir, "preview_tripulacion2.png"));
+        }
+
+        // Planos del show (los mismos que usa ShowDirector en Play)
+        var esc = Object.FindFirstObjectByType<EscenarioPitch>();
+        if (esc != null && esc.emprendedor != null && esc.rutaSubida != null && esc.rutaSubida.Length >= 3)
+        {
+            esc.Init();
+            var emp = esc.emprendedor;
+            Vector3 ep = emp.transform.localPosition; Quaternion er = emp.transform.localRotation;
+            float fov0 = cam.fieldOfView;
+            void Shot(EscenarioPitch.Plano p, string f)
+            {
+                cam.transform.position = p.pos;
+                cam.transform.LookAt(p.mira);
+                cam.fieldOfView = p.fov;
+                Render(cam, Path.Combine(dir, f));
+            }
+            Vector3 centro = esc.barco.position + Vector3.up * 6f;
+            Shot(new EscenarioPitch.Plano(centro + esc.barco.TransformDirection(Vector3.back) * 62f + Vector3.up * 10f, centro, 45f), "preview_estribor.png");
+            var ruta = esc.rutaSubida;
+            emp.Colocar(Vector3.Lerp(ruta[1], ruta[2], 0.55f), ruta[2]);
+            Shot(esc.PlanoSubida(), "preview_subida.png");
+            emp.Colocar(esc.PuntoPitch, esc.barco.InverseTransformPoint(esc.CentroGrupo()));
+            Shot(esc.PlanoGrupo(), "preview_pitch_grupo.png");
+            Shot(esc.PlanoEmprendedor(), "preview_pitch_emprendedor.png");
+            Shot(esc.PlanoMesa(), "preview_pitch_mesa.png");
+            foreach (var n in new[] { "Arlong", "Luffy", "Barbablanca", "Zoro", "Shanks" })
+            {
+                int i = esc.IndiceShark(n);
+                if (i >= 0) Shot(esc.PlanoShark(i), $"preview_shark_{n.ToLowerInvariant()}.png");
+            }
+            Shot(esc.PlanoFinal(0f), "preview_final.png");
+            int ia = esc.IndiceShark("Shanks");
+            if (ia >= 0) Shot(esc.PlanoContraplano(ia), "preview_contraplano.png");
+            emp.transform.localPosition = ep; emp.transform.localRotation = er;
+            cam.fieldOfView = fov0;
         }
         ShaderUtil.allowAsyncCompilation = asyncPrev;
         if (cine != null) cine.Place(); else { cam.transform.SetPositionAndRotation(p0, r0); }

@@ -22,7 +22,7 @@ public class CinematicCamera : MonoBehaviour
 #if ENABLE_INPUT_SYSTEM
         var mouse = UnityEngine.InputSystem.Mouse.current;
         var kb = UnityEngine.InputSystem.Keyboard.current;
-        if (kb != null && kb.cKey.wasPressedThisFrame) autoOrbit = !autoOrbit;
+        if (kb != null && kb.cKey.wasPressedThisFrame && !ShowInput.Escribiendo) autoOrbit = !autoOrbit;
         if (mouse != null)
         {
             if (mouse.rightButton.isPressed)

@@ -1,0 +1,515 @@
+{
+  "emprendedor": "ana",
+  "modo_llm": "real (openai:gpt-4o-mini)",
+  "sharks": [
+    "Luffy",
+    "Shanks",
+    "Zoro",
+    "Whitebeard",
+    "Arlong"
+  ],
+  "max_vueltas": 5,
+  "solicitud": {
+    "monto": 200000.0,
+    "porcentaje": 10.0
+  },
+  "historial": [
+    {
+      "id": 1,
+      "etapa": "pitch",
+      "emisor": "ana",
+      "tipo": "pitch",
+      "contenido": "Hola Sharks, soy Ana y les presento VerdeBox, kits de comida saludable listos para cocinar en 15 minutos, con ingredientes de productores locales de Jalisco.\nEl problema: los profesionistas jóvenes quieren comer sano, pero no tienen tiempo de planear ni de ir al mercado.\nLlevamos 18 meses operando en Guadalajara, tenemos 1,200 suscriptores activos, vendimos $4.2 millones de pesos el último año y nuestro margen bruto es del 42%.\nNuestra tasa de cancelación mensual es del 6% y el costo por adquirir un cliente es de $310, que recuperamos en el segundo mes.\nSomos un equipo de 9 personas: mi socio es chef con 10 años de experiencia y nuestra directora de operaciones viene de Cornershop.\nQueremos expandirnos a CDMX y Monterrey y abrir una segunda cocina central.\n- Monto: 2000000\n- Porcentaje: 10\n[Solicitud: $200,000 por el 10% de la empresa]",
+      "timestamp": "2026-11-20T13:26:05",
+      "monto": 200000.0,
+      "porcentaje": 10.0
+    },
+    {
+      "id": 2,
+      "etapa": "preguntas",
+      "emisor": "Luffy",
+      "tipo": "pregunta",
+      "contenido": "¡Oye! ¿Cómo hacen para que la comida sea tan rica y rápida de preparar?",
+      "timestamp": "2026-11-20T13:26:06",
+      "vuelta": 1
+    },
+    {
+      "id": 3,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "usamos la mejor comida de todo el mundo cosechada en culiacan",
+      "timestamp": "2026-11-20T13:26:28",
+      "vuelta": 1,
+      "responde_a": 2
+    },
+    {
+      "id": 4,
+      "etapa": "preguntas",
+      "emisor": "Shanks",
+      "tipo": "pregunta",
+      "contenido": "¿Cómo planean construir alianzas con productores locales en CDMX y Monterrey?",
+      "timestamp": "2026-11-20T13:26:29",
+      "vuelta": 1
+    },
+    {
+      "id": 5,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "hablando directmente con ellos y ofreciendoles tratos justos",
+      "timestamp": "2026-11-20T13:26:46",
+      "vuelta": 1,
+      "responde_a": 4
+    },
+    {
+      "id": 6,
+      "etapa": "preguntas",
+      "emisor": "Zoro",
+      "tipo": "pregunta",
+      "contenido": "¿Cuál es su estrategia para mantener la calidad a medida que escalan?",
+      "timestamp": "2026-11-20T13:26:47",
+      "vuelta": 1
+    },
+    {
+      "id": 7,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "siempre seguir los mismos lineamientos",
+      "timestamp": "2026-11-20T13:27:00",
+      "vuelta": 1,
+      "responde_a": 6
+    },
+    {
+      "id": 8,
+      "etapa": "preguntas",
+      "emisor": "Whitebeard",
+      "tipo": "pregunta",
+      "contenido": "Hija, ¿cómo entrenan a su equipo para mantener el espíritu familiar y la calidad en el servicio?",
+      "timestamp": "2026-11-20T13:27:02",
+      "vuelta": 1
+    },
+    {
+      "id": 9,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "siempre a todos los tratamos  como familia",
+      "timestamp": "2026-11-20T13:27:13",
+      "vuelta": 1,
+      "responde_a": 8
+    },
+    {
+      "id": 10,
+      "etapa": "preguntas",
+      "emisor": "Arlong",
+      "tipo": "pregunta",
+      "contenido": "¿Qué medidas tienen para prevenir que su modelo de negocio se copie, humano inferior?",
+      "timestamp": "2026-11-20T13:27:15",
+      "vuelta": 1
+    },
+    {
+      "id": 11,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "tu para mi eres un naco arlong no me hables",
+      "timestamp": "2026-11-20T13:27:26",
+      "vuelta": 1,
+      "responde_a": 10
+    },
+    {
+      "id": 12,
+      "etapa": "preguntas",
+      "emisor": "Luffy",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:27:26",
+      "vuelta": 2
+    },
+    {
+      "id": 13,
+      "etapa": "preguntas",
+      "emisor": "Shanks",
+      "tipo": "pregunta",
+      "contenido": "¿Cómo piensan comunicar su propuesta de valor a los nuevos mercados de CDMX y Monterrey?",
+      "timestamp": "2026-11-20T13:27:28",
+      "vuelta": 2
+    },
+    {
+      "id": 14,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "contratadondo los mejores comunicadores",
+      "timestamp": "2026-11-20T13:27:48",
+      "vuelta": 2,
+      "responde_a": 13
+    },
+    {
+      "id": 15,
+      "etapa": "preguntas",
+      "emisor": "Zoro",
+      "tipo": "pregunta",
+      "contenido": "¿Qué métricas usan para evaluar el desempeño de su equipo y su satisfacción con el trabajo?",
+      "timestamp": "2026-11-20T13:27:50",
+      "vuelta": 2
+    },
+    {
+      "id": 16,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "encuestas semanales",
+      "timestamp": "2026-11-20T13:27:59",
+      "vuelta": 2,
+      "responde_a": 15
+    },
+    {
+      "id": 17,
+      "etapa": "preguntas",
+      "emisor": "Whitebeard",
+      "tipo": "pregunta",
+      "contenido": "Hija, ¿cómo planean asegurar la lealtad de sus suscriptores a largo plazo en un mercado competitivo?",
+      "timestamp": "2026-11-20T13:28:01",
+      "vuelta": 2
+    },
+    {
+      "id": 18,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "dandoles el mejor producto para que se queden con nosotros",
+      "timestamp": "2026-11-20T13:28:23",
+      "vuelta": 2,
+      "responde_a": 17
+    },
+    {
+      "id": 19,
+      "etapa": "preguntas",
+      "emisor": "Arlong",
+      "tipo": "pregunta",
+      "contenido": "¿Cuál es su estrategia para manejar la competencia y evitar que les roben sus clientes, humano inferior?",
+      "timestamp": "2026-11-20T13:28:25",
+      "vuelta": 2
+    },
+    {
+      "id": 20,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "arlong ya te dije que no quiero hacer tratos contigo no hables",
+      "timestamp": "2026-11-20T13:28:37",
+      "vuelta": 2,
+      "responde_a": 19
+    },
+    {
+      "id": 21,
+      "etapa": "preguntas",
+      "emisor": "Luffy",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:28:37",
+      "vuelta": 3
+    },
+    {
+      "id": 22,
+      "etapa": "preguntas",
+      "emisor": "Shanks",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:28:37",
+      "vuelta": 3
+    },
+    {
+      "id": 23,
+      "etapa": "preguntas",
+      "emisor": "Zoro",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:28:37",
+      "vuelta": 3
+    },
+    {
+      "id": 24,
+      "etapa": "preguntas",
+      "emisor": "Whitebeard",
+      "tipo": "pregunta",
+      "contenido": "Hija, ¿cómo manejan los conflictos internos en su equipo para mantener la armonía familiar?",
+      "timestamp": "2026-11-20T13:28:39",
+      "vuelta": 3
+    },
+    {
+      "id": 25,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "como te dije mi empresa es una familia, debemos de tratarnos todos asi, esta forma nos hemos evitado todos los conflictos",
+      "timestamp": "2026-11-20T13:29:07",
+      "vuelta": 3,
+      "responde_a": 24
+    },
+    {
+      "id": 26,
+      "etapa": "preguntas",
+      "emisor": "Arlong",
+      "tipo": "pregunta",
+      "contenido": "¿Qué proyecciones financieras tienen para los próximos años, humano inferior?",
+      "timestamp": "2026-11-20T13:29:09",
+      "vuelta": 3
+    },
+    {
+      "id": 27,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "arlong te odio no quiero trabajar contigo",
+      "timestamp": "2026-11-20T13:29:20",
+      "vuelta": 3,
+      "responde_a": 26
+    },
+    {
+      "id": 28,
+      "etapa": "preguntas",
+      "emisor": "Luffy",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:20",
+      "vuelta": 4
+    },
+    {
+      "id": 29,
+      "etapa": "preguntas",
+      "emisor": "Shanks",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:20",
+      "vuelta": 4
+    },
+    {
+      "id": 30,
+      "etapa": "preguntas",
+      "emisor": "Zoro",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:20",
+      "vuelta": 4
+    },
+    {
+      "id": 31,
+      "etapa": "preguntas",
+      "emisor": "Whitebeard",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:20",
+      "vuelta": 4
+    },
+    {
+      "id": 32,
+      "etapa": "preguntas",
+      "emisor": "Arlong",
+      "tipo": "pregunta",
+      "contenido": "¿Cuáles son sus márgenes de ganancia neta, humano inferior?",
+      "timestamp": "2026-11-20T13:29:22",
+      "vuelta": 4
+    },
+    {
+      "id": 33,
+      "etapa": "preguntas",
+      "emisor": "ana",
+      "tipo": "respuesta",
+      "contenido": "por que sigues preguntando",
+      "timestamp": "2026-11-20T13:29:26",
+      "vuelta": 4,
+      "responde_a": 32
+    },
+    {
+      "id": 34,
+      "etapa": "preguntas",
+      "emisor": "Luffy",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:26",
+      "vuelta": 5
+    },
+    {
+      "id": 35,
+      "etapa": "preguntas",
+      "emisor": "Shanks",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:26",
+      "vuelta": 5
+    },
+    {
+      "id": 36,
+      "etapa": "preguntas",
+      "emisor": "Zoro",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:26",
+      "vuelta": 5
+    },
+    {
+      "id": 37,
+      "etapa": "preguntas",
+      "emisor": "Whitebeard",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:26",
+      "vuelta": 5
+    },
+    {
+      "id": 38,
+      "etapa": "preguntas",
+      "emisor": "Arlong",
+      "tipo": "pasar",
+      "contenido": "",
+      "timestamp": "2026-11-20T13:29:26",
+      "vuelta": 5
+    },
+    {
+      "id": 39,
+      "etapa": "retroalimentacion",
+      "emisor": "Luffy",
+      "tipo": "recomendacion",
+      "contenido": "¡Oye! Mantén siempre ese espíritu familiar en tu equipo, eso es lo que los hace especiales. Y asegúrate de seguir ofreciendo comida deliciosa y rápida.",
+      "timestamp": "2026-11-20T13:29:35"
+    },
+    {
+      "id": 40,
+      "etapa": "retroalimentacion",
+      "emisor": "Shanks",
+      "tipo": "recomendacion",
+      "contenido": "Fortalece tu comunicación y marketing para conectar mejor con los nuevos mercados, y asegúrate de que tu equipo siga sintiéndose como una familia a medida que crezcan.",
+      "timestamp": "2026-11-20T13:29:35"
+    },
+    {
+      "id": 41,
+      "etapa": "retroalimentacion",
+      "emisor": "Zoro",
+      "tipo": "recomendacion",
+      "contenido": "Asegúrense de tener un plan claro para la calidad al escalar.",
+      "timestamp": "2026-11-20T13:29:35"
+    },
+    {
+      "id": 42,
+      "etapa": "retroalimentacion",
+      "emisor": "Whitebeard",
+      "tipo": "recomendacion",
+      "contenido": "Hija, asegúrate de tener un plan sólido para la expansión y la adaptación a nuevos mercados, así como una estrategia clara para mantener la calidad y el espíritu familiar en el equipo.",
+      "timestamp": "2026-11-20T13:29:35"
+    },
+    {
+      "id": 43,
+      "etapa": "retroalimentacion",
+      "emisor": "Arlong",
+      "tipo": "recomendacion",
+      "contenido": "Necesitas mejorar la claridad y la solidez de tus proyecciones financieras, humano inferior. No me convenciste con tus respuestas vagas.",
+      "timestamp": "2026-11-20T13:29:35"
+    },
+    {
+      "id": 44,
+      "etapa": "ofertas",
+      "emisor": "Luffy",
+      "tipo": "decision",
+      "contenido": "¡Shishishi! Me encanta la idea de VerdeBox y cómo cuidan a su equipo y a sus clientes. ¡Estoy dentro!",
+      "timestamp": "2026-11-20T13:29:35",
+      "interes": "alto",
+      "dentro": true,
+      "oferta": {
+        "tipo": "completa",
+        "monto": 200000.0,
+        "porcentaje": 10.0
+      }
+    },
+    {
+      "id": 45,
+      "etapa": "ofertas",
+      "emisor": "Shanks",
+      "tipo": "decision",
+      "contenido": "Me gusta tu convicción y el enfoque en la calidad. Creo que puedes hacer un gran impacto en CDMX y Monterrey.",
+      "timestamp": "2026-11-20T13:29:35",
+      "interes": "alto",
+      "dentro": true,
+      "oferta": {
+        "tipo": "completa",
+        "monto": 200000.0,
+        "porcentaje": 10.0
+      }
+    },
+    {
+      "id": 46,
+      "etapa": "ofertas",
+      "emisor": "Zoro",
+      "tipo": "decision",
+      "contenido": "Respuestas demasiado vagas. No veo suficiente claridad en su estrategia para competir.",
+      "timestamp": "2026-11-20T13:29:35",
+      "interes": "ninguno",
+      "dentro": false,
+      "oferta": null
+    },
+    {
+      "id": 47,
+      "etapa": "ofertas",
+      "emisor": "Whitebeard",
+      "tipo": "decision",
+      "contenido": "Aunque veo potencial en tu negocio, tus respuestas no han sido lo suficientemente claras ni concretas para convencerme de que tienes un plan sostenible a largo plazo.",
+      "timestamp": "2026-11-20T13:29:35",
+      "interes": "ninguno",
+      "dentro": false,
+      "oferta": null
+    },
+    {
+      "id": 48,
+      "etapa": "ofertas",
+      "emisor": "Arlong",
+      "tipo": "decision",
+      "contenido": "No estoy dispuesto a arriesgar mi dinero en un negocio que no tiene un plan sólido ni respuestas convincentes.",
+      "timestamp": "2026-11-20T13:29:35",
+      "interes": "ninguno",
+      "dentro": false,
+      "oferta": null
+    },
+    {
+      "id": 49,
+      "etapa": "eleccion",
+      "emisor": "ana",
+      "tipo": "eleccion",
+      "contenido": "Acepto la oferta de Luffy: $200,000 por el 10% (oferta completa)",
+      "timestamp": "2026-11-20T13:30:18",
+      "shark_elegido": "Luffy"
+    }
+  ],
+  "verificacion": {
+    "vueltas_jugadas": 5,
+    "fin_por_consenso": true,
+    "total_preguntas": 12,
+    "preguntas_por_shark": {
+      "Luffy": 1,
+      "Shanks": 2,
+      "Zoro": 2,
+      "Whitebeard": 3,
+      "Arlong": 4
+    },
+    "sharks_que_excedieron_limite": [],
+    "preguntas_repetidas": [],
+    "preguntas_sin_respuesta": [],
+    "entregas_qa_ok": 120,
+    "entregas_qa_esperadas": 120,
+    "porcentaje_entrega": 100.0,
+    "sharks_sin_recomendacion": [],
+    "dentro": [
+      "Luffy",
+      "Shanks"
+    ],
+    "fuera": [
+      "Zoro",
+      "Whitebeard",
+      "Arlong"
+    ],
+    "eleccion": "Luffy",
+    "rechazos": []
+  }
+}
