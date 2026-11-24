@@ -126,11 +126,7 @@ public class EscenarioPitch : MonoBehaviour
 
     public Vector3 CabezaShark(int i) => barco.TransformPoint(sharks[i].cabezaLocal);
 
-    public Vector3 CabezaEmprendedor()
-    {
-        if (emprendedor.cabeza != null) return emprendedor.cabeza.position;
-        return emprendedor.transform.position + Vector3.up * 1.6f;
-    }
+    public Vector3 CabezaEmprendedor() => emprendedor.PuntoCabeza;
 
     public Vector3 CentroGrupo()
     {

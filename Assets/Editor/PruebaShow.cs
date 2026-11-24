@@ -9,16 +9,20 @@ public static class PruebaShow
 {
     const string Marca = "Temp/op_play";
 
+    static double _siguiente;
+
     static PruebaShow()
     {
-        if (File.Exists(Marca)) EditorApplication.update += Esperar;
+        EditorApplication.update += Esperar;   // revisa la marca una vez por segundo
     }
 
     static void Esperar()
     {
+        if (EditorApplication.timeSinceStartup < _siguiente) return;
+        _siguiente = EditorApplication.timeSinceStartup + 1.0;
+        if (!File.Exists(Marca)) return;
         if (EditorApplication.isCompiling || EditorApplication.isUpdating || File.Exists("Temp/op_rebuild")) return;
-        if (EditorApplication.isPlayingOrWillChangePlaymode) { EditorApplication.update -= Esperar; return; }
-        EditorApplication.update -= Esperar;
+        if (EditorApplication.isPlayingOrWillChangePlaymode) return;
         File.Delete(Marca);
         EditorApplication.isPlaying = true;
     }

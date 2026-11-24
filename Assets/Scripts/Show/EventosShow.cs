@@ -109,6 +109,34 @@ public static class FormatoShow
         return k == "whitebeard" || k == "barbablanca" || k == "edwardnewgate" ? "barbablanca" : k;
     }
 
+    /// Nombre completo para mostrar en pantalla ("Luffy" -> "Monkey D. Luffy").
+    public static string NombreBonito(string nombre)
+    {
+        switch (Clave(nombre))
+        {
+            case "luffy": return "Monkey D. Luffy";
+            case "zoro": return "Roronoa Zoro";
+            case "shanks": return "Shanks";
+            case "barbablanca": return "Barbablanca";
+            case "arlong": return "Arlong";
+            default: return string.IsNullOrWhiteSpace(nombre) ? "" : nombre.Trim();
+        }
+    }
+
+    /// Apodo corto de cada Shark (para tarjetas y el formulario).
+    public static string Apodo(string nombre)
+    {
+        switch (Clave(nombre))
+        {
+            case "luffy": return "Sombrero de Paja";
+            case "zoro": return "Cazador de Piratas";
+            case "shanks": return "El Pelirrojo";
+            case "barbablanca": return "Edward Newgate";
+            case "arlong": return "El Pez Sierra";
+            default: return "";
+        }
+    }
+
     /// Parte un texto largo en páginas que caben en el cuadro de subtítulos, cortando en
     /// finales de oración o, si no hay, en espacios.
     public static List<string> Paginar(string texto, int maxChars = 330)

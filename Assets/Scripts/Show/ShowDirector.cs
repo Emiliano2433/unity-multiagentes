@@ -43,6 +43,7 @@ public class ShowDirector : MonoBehaviour
     // ---- estado del show
     ShowUI _ui;
     ShowInput _input;
+    VocesShow _voces;
     bool _decidirFormulario = true;   // al primer sondeo: mostrar el formulario si no hay sesión en curso
     string _sesionPedida;             // sesión creada por nuestro POST /sesion (no volver a abrir el formulario)
     string _nombreEmprendedor = "Emprendedor";
@@ -79,6 +80,7 @@ public class ShowDirector : MonoBehaviour
 
         _ui = gameObject.AddComponent<ShowUI>();
         _ui.Construir();
+        _voces = gameObject.AddComponent<VocesShow>();
         _input = gameObject.AddComponent<ShowInput>();
         _input.Construir();
         _input.AlEnviarPitch += (n, p, m, pct) => StartCoroutine(EnviarPitch(n, p, m, pct));
@@ -97,6 +99,7 @@ public class ShowDirector : MonoBehaviour
         CrearFoco();
         CrearDesenfoque();
         ReiniciarEscena();
+        StartCoroutine(TomarFotos());
         StartCoroutine(Sondear());
         _show = StartCoroutine(Show());
 #if UNITY_EDITOR
@@ -397,12 +400,12 @@ public class ShowDirector : MonoBehaviour
             {
                 yield return Llegada();
                 Etapa("1 · PITCH");
-                _ui.Tarjeta("EL PITCH", _nombreEmprendedor + " presenta su negocio", 2.2f);
+                Tarjeta("EL PITCH", _nombreEmprendedor + " presenta su negocio", 2.2f);
                 string texto = e.contenido ?? "";
                 int i = texto.IndexOf("[Solicitud:", StringComparison.Ordinal);
                 if (i >= 0) texto = texto.Substring(0, i).Trim();
                 if (e.monto > 0)
-                    _ui.Solicitud($"<b>{_nombreEmprendedor}</b> pide\n<b><color=#FFD045>{FormatoShow.Dinero(e.monto)}</color></b> por el <b><color=#FFD045>{FormatoShow.Porcentaje(e.porcentaje)}</color></b> de su empresa");
+                    _ui.Solicitud(_nombreEmprendedor, e.monto, e.porcentaje);
                 Plano(escenario.PlanoGrupo, 0.9f);
                 yield return Esperar(1.6f);
                 var planos = new Func<EscenarioPitch.Plano>[] { escenario.PlanoEmprendedor, escenario.PlanoMesa, escenario.PlanoEmprendedor, escenario.PlanoGrupo };
@@ -415,8 +418,8 @@ public class ShowDirector : MonoBehaviour
 
             case "inicio_vuelta":
                 Etapa($"2 · PREGUNTAS   ·   Vuelta {e.vuelta}");
-                if (e.vuelta <= 1) _ui.Tarjeta("RONDA DE PREGUNTAS", "Cada Shark pregunta o pasa", 2.4f);
-                else _ui.Tarjeta($"VUELTA {e.vuelta}", "Siguen las preguntas", 1.8f);
+                if (e.vuelta <= 1) Tarjeta("RONDA DE PREGUNTAS", "Cada Shark pregunta o pasa", 2.4f);
+                else Tarjeta($"VUELTA {e.vuelta}", "Siguen las preguntas", 1.8f);
                 Plano(escenario.PlanoGrupo, 0.9f);
                 yield return Esperar(_cola.Count > 3 ? 1.4f : 2.2f);
                 break;
@@ -426,6 +429,7 @@ public class ShowDirector : MonoBehaviour
                 int s = Idx(e.emisor);
                 if (s < 0) break;
                 Resaltar(s);
+                _voces.Efecto("turno", 0.6f);
                 Plano(() => escenario.PlanoShark(s));
                 yield return Esperando(s, "su turno", "Pensando");
                 break;
@@ -503,26 +507,26 @@ public class ShowDirector : MonoBehaviour
             case "deliberacion":
                 _ui.MarcadorResaltar(-1);
                 Etapa("LOS SHARKS DELIBERAN");
-                _ui.Tarjeta("DELIBERACIÓN", "Cada Shark decide sin ver a los demás", 2.4f);
+                Tarjeta("DELIBERACIÓN", "Cada Shark decide sin ver a los demás", 2.4f);
                 Plano(escenario.PlanoMesa, 1.2f);
                 yield return Esperando(int.MinValue, "", "Los Sharks están deliberando", "Sharks", ShowUI.Dorado);
                 break;
             case "retroalimentacion":
                 Etapa("3 · RETROALIMENTACIÓN");
-                _ui.Tarjeta("RETROALIMENTACIÓN", "Lo que cada Shark le recomienda al emprendedor", 2.4f);
+                Tarjeta("RETROALIMENTACIÓN", "Lo que cada Shark le recomienda al emprendedor", 2.4f);
                 Plano(escenario.PlanoGrupo, 1f);
                 yield return Esperar(2.2f);
                 break;
             case "ofertas":
                 Etapa("4 · OFERTAS");
-                _ui.Tarjeta("¿DENTRO O FUERA?", "Llegó el momento de las ofertas", 2.6f);
+                Tarjeta("¿DENTRO O FUERA?", "Llegó el momento de las ofertas", 2.6f);
                 Plano(escenario.PlanoGrupo, 1f);
                 yield return Esperar(2.4f);
                 break;
             case "eleccion":
                 Etapa("5 · ELECCIÓN");
                 _ui.MarcadorResaltar(-1);
-                _ui.Tarjeta("LA ELECCIÓN", _nombreEmprendedor + " decide con quién hace el trato", 2.6f);
+                Tarjeta("LA ELECCIÓN", _nombreEmprendedor + " decide con quién hace el trato", 2.6f);
                 Plano(escenario.PlanoEmprendedor, 1f);
                 yield return Esperando(Emprendedor, "decide", "Eligiendo una oferta", minimo: 2.4f);
                 break;
@@ -543,6 +547,7 @@ public class ShowDirector : MonoBehaviour
 
         bool dentro = e.dentro && e.oferta != null && e.oferta.monto > 0;
         Color c = dentro ? ShowUI.Verde : ShowUI.Rojo;
+        _voces.Efecto(dentro ? "dentro" : "fuera");
         _ui.Sello(dentro ? "¡ESTOY DENTRO!" : "ESTOY FUERA", (e.emisor ?? "") + (dentro ? "  ·  " + FormatoShow.Oferta(e.oferta) : "  ·  sin oferta"), c, 2.6f / Vel);
         MarcadorFila(e.emisor, dentro ? "DENTRO  ·  " + FormatoShow.Dinero(e.oferta.monto) + " x " + FormatoShow.Porcentaje(e.oferta.porcentaje) : "FUERA", c);
         if (s >= 0) _placas[s].Mostrar(dentro ? "DENTRO" : "FUERA", c);
@@ -562,6 +567,7 @@ public class ShowDirector : MonoBehaviour
             Resaltar(s);
             Plano(() => escenario.PlanoShark(s), 0.8f);
             _hablante = s;
+            _voces.Efecto("trato");
             _ui.Sello("¡TRATO HECHO!", _nombreEmprendedor + " + " + e.shark_elegido, ShowUI.Dorado, 3.2f / Vel);
             _placas[s].Mostrar("TRATO", ShowUI.Dorado);
             Confeti(escenario.CabezaEmprendedor(), 220);
@@ -570,6 +576,7 @@ public class ShowDirector : MonoBehaviour
         }
         else
         {
+            _voces.Efecto("fuera", 0.7f);
             _ui.Sello("SIN TRATO", _nombreEmprendedor + " no aceptó ninguna oferta", new Color(0.35f, 0.38f, 0.45f), 2.8f / Vel);
             yield return Esperar(2.8f);
         }
@@ -608,7 +615,7 @@ public class ShowDirector : MonoBehaviour
         emp.Colocar(escenario.puntoBote, ruta.Length > 0 ? ruta[0] : escenario.puntoBote + Vector3.right);
 
         Etapa("LLEGADA AL GOING MERRY");
-        _ui.Tarjeta("SHARK TANK", "a bordo del Going Merry", 3f);
+        Tarjeta("SHARK TANK", "a bordo del Going Merry", 3f);
         Plano(escenario.PlanoSubida, 0.01f);
         Hablante(Emprendedor, "llega al barco");
         _ui.TextoSubtitulo(_nombreEmprendedor + " sube a bordo para presentar su negocio a los Sharks.", 999, "", true);
@@ -655,11 +662,18 @@ public class ShowDirector : MonoBehaviour
             string numero = paginas.Count > 1 ? $"{p + 1} / {paginas.Count}" : "";
 
             float visibles = 0;
+            int mostradas = 0;
+            string voz = VozDe(quien);
+            _voces.Efecto(p == 0 ? "abrir" : "pagina", p == 0 ? 0.55f : 0.8f);
             while (visibles < pag.Length)
             {
-                if (_saltar) { _saltar = false; visibles = pag.Length; }
+                bool salto = false;
+                if (_saltar) { _saltar = false; visibles = pag.Length; salto = true; }
                 visibles += Time.deltaTime * letrasPorSegundo * Vel * (_cola.Count > 6 ? 1.8f : 1f);
-                _ui.TextoSubtitulo(pag, (int)visibles, numero);
+                int ahora = Mathf.Min((int)visibles, pag.Length);
+                if (!salto) for (int k = mostradas; k < ahora; k++) _voces.Letra(voz, pag[k]);   // blip estilo Celeste
+                mostradas = ahora;
+                _ui.TextoSubtitulo(pag, ahora, numero);
                 yield return null;
             }
             _ui.TextoSubtitulo(pag, pag.Length, numero);
@@ -701,9 +715,35 @@ public class ShowDirector : MonoBehaviour
     void Hablante(int quien, string etiqueta)
     {
         _hablante = quien;
-        if (quien == Emprendedor) _ui.Hablante(_nombreEmprendedor, escenario.colorEmprendedor, etiqueta);
-        else if (quien >= 0) _ui.Hablante(NombreVisible(quien), escenario.sharks[quien].color, etiqueta);
+        if (quien == Emprendedor) _ui.Hablante(_nombreEmprendedor, escenario.colorEmprendedor, etiqueta, RetratoDe(quien), "emprendedor");
+        else if (quien >= 0) _ui.Hablante(NombreVisible(quien), escenario.sharks[quien].color, etiqueta, RetratoDe(quien), FormatoShow.Clave(escenario.sharks[quien].nombre));
         else _ui.Hablante("", Color.gray, etiqueta);
+    }
+
+    /// Cámara del retrato: cabeza de quien habla, hacia dónde mira y su altura (para el encuadre).
+    Func<(Vector3, Vector3, float)> RetratoDe(int quien)
+    {
+        if (quien == Emprendedor)
+            return () => (escenario.CabezaEmprendedor(), escenario.emprendedor.transform.forward, 1.78f);
+        if (quien >= 0 && quien < escenario.sharks.Length)
+        {
+            int k = quien;
+            return () =>
+            {
+                Vector3 c = escenario.CabezaShark(k);
+                return (c, escenario.CabezaEmprendedor() - c, escenario.sharks[k].altura);
+            };
+        }
+        return null;
+    }
+
+    string VozDe(int quien) =>
+        quien == Emprendedor ? "emprendedor" : quien >= 0 && quien < escenario.sharks.Length ? VocesShow.Clave(escenario.sharks[quien].nombre) : "_";
+
+    void Tarjeta(string grande, string sub, float segundos)
+    {
+        _ui.Tarjeta(grande, sub, segundos);
+        _voces.Efecto("tarjeta", 0.8f);
     }
 
     void Callar()
@@ -743,11 +783,7 @@ public class ShowDirector : MonoBehaviour
 
     int Idx(string nombre) => string.IsNullOrEmpty(nombre) ? -1 : escenario.IndiceShark(nombre);
 
-    string NombreVisible(int i)
-    {
-        foreach (var n in _nombresBackend) if (Idx(n) == i) return n;
-        return escenario.sharks[i].nombre;
-    }
+    string NombreVisible(int i) => FormatoShow.NombreBonito(escenario.sharks[i].nombre);
 
     int Preguntas(string shark) => _preguntas.TryGetValue(FormatoShow.Clave(shark), out int n) ? n : 0;
 
@@ -919,5 +955,53 @@ public class ShowDirector : MonoBehaviour
         if (materialParticulas != null) r.sharedMaterial = materialParticulas;
         main.stopAction = ParticleSystemStopAction.Destroy;
         ps.Play();
+    }
+
+    // ================================================================ fotos de los personajes
+
+    readonly Dictionary<string, Texture> _fotos = new();
+
+    /// Retrato fijo de cada personaje (una sola vez al iniciar) para el marcador y los menús.
+    IEnumerator TomarFotos()
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+        var go = new GameObject("Camara fotos");
+        var cam = go.AddComponent<Camera>();
+        cam.enabled = false;
+        cam.fieldOfView = 22f;
+        cam.nearClipPlane = 0.05f;
+        cam.farClipPlane = 400f;
+        var data = go.AddComponent<UniversalAdditionalCameraData>();
+        data.renderPostProcessing = true;
+        data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+
+        Vector3 pitch = escenario.barco.TransformPoint(escenario.PuntoPitch) + Vector3.up * 1.5f;
+        for (int i = 0; i < escenario.sharks.Length; i++)
+        {
+            var sh = escenario.sharks[i];
+            if (sh.personaje == null) continue;
+            Vector3 c = escenario.CabezaShark(i);
+            Fotografiar(cam, FormatoShow.Clave(sh.nombre), c, pitch - c, sh.altura);
+        }
+        Fotografiar(cam, "emprendedor", escenario.CabezaEmprendedor(), escenario.emprendedor.transform.forward, 1.78f);
+        Destroy(go);
+        _ui.Fotos(_fotos);
+        var orden = escenario.sharks.Where(x => x.personaje != null)
+            .OrderBy(x => { int k = Array.FindIndex(SharksPorDefecto, n => FormatoShow.Clave(n) == FormatoShow.Clave(x.nombre)); return k < 0 ? 99 : k; })
+            .Select(x => (x.nombre, x.color)).ToList();
+        _input.Fotos(_fotos, orden, escenario.colorEmprendedor);
+    }
+
+    void Fotografiar(Camera cam, string clave, Vector3 cabeza, Vector3 frente, float altura)
+    {
+        var rt = new RenderTexture(384, 384, 24, RenderTextureFormat.ARGB32) { name = "Foto " + clave, antiAliasing = 4 };
+        rt.Create();
+        var (pos, rot) = ShowUI.EncuadreRetrato(cabeza, frente, altura, clave);
+        cam.transform.SetPositionAndRotation(pos, rot);
+        cam.targetTexture = rt;
+        cam.Render();
+        cam.targetTexture = null;
+        _fotos[clave] = rt;
     }
 }

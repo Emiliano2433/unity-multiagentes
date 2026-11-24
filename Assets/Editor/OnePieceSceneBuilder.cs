@@ -657,8 +657,66 @@ public static class OnePieceSceneBuilder
         return m;
     }
 
-    /// Personaje del emprendedor hecho con primitivas (traje, corbata y maletín). Pies en y=0, mira a +Z.
+    const string LightPath = "Assets/Models/LightYagami.glb";
+    const float LightAltura = 1.78f;
+
+    /// Emprendedor = Light Yagami (modelo con esqueleto). Pies en y=0, mira a +Z.
+    /// Lo anima Emprendedor.cs moviendo sus huesos (caminar, escalera, gestos).
     static Emprendedor BuildEmprendedor(Transform parent)
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<GameObject>(LightPath);
+        if (asset == null)
+        {
+            Debug.LogWarning($"[OnePiece] No se encontró {LightPath}; se usa el emprendedor de primitivas.");
+            return BuildEmprendedorPrimitivas(parent);
+        }
+        var root = new GameObject("Emprendedor");
+        root.transform.SetParent(parent, false);
+        var e = root.AddComponent<Emprendedor>();
+        var modelo = (GameObject)PrefabUtility.InstantiatePrefab(asset, root.transform);
+        modelo.name = "Light Yagami";
+
+        // Medir con la malla en su pose de reposo para escalar y apoyar los pies en y=0
+        float minY = float.MaxValue, maxY = float.MinValue;
+        foreach (var smr in modelo.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            if (smr.sharedMesh == null) continue;
+            smr.updateWhenOffscreen = true;
+            var m = new Mesh();
+            smr.BakeMesh(m, true);
+            foreach (var v in m.vertices) { float y = smr.transform.TransformPoint(v).y; minY = Mathf.Min(minY, y); maxY = Mathf.Max(maxY, y); }
+            Object.DestroyImmediate(m);
+        }
+        if (maxY > minY)
+        {
+            float k = LightAltura / (maxY - minY);
+            modelo.transform.localScale *= k;
+            float baseY = (minY - root.transform.position.y) * k;
+            modelo.transform.localPosition -= new Vector3(0, baseY / Mathf.Max(1e-4f, root.transform.lossyScale.y), 0);
+        }
+
+        var huesos = modelo.GetComponentsInChildren<Transform>(true);
+        Transform H(string prefijo)
+        {
+            var t = huesos.FirstOrDefault(x => x.name.StartsWith(prefijo, System.StringComparison.Ordinal));
+            if (t == null) Debug.LogWarning($"[OnePiece] Light: no se encontró el hueso {prefijo}");
+            return t;
+        }
+        e.rig = true;
+        e.pelvis = H("bip_pelvis");
+        e.columna = H("bip_spine_1");
+        e.huesoCabeza = H("bip_head");
+        e.musloIzq = H("bip_hip_L"); e.musloDer = H("bip_hip_R");
+        e.rodillaIzq = H("bip_knee_L"); e.rodillaDer = H("bip_knee_R");
+        e.hombroIzq = H("bip_upperArm_L"); e.hombroDer = H("bip_upperArm_R");
+        e.codoIzq = H("bip_lowerArm_L"); e.codoDer = H("bip_lowerArm_R");
+        e.cabeza = e.huesoCabeza;
+        e.velocidadPiso = 1.25f;
+        return e;
+    }
+
+    /// Personaje del emprendedor hecho con primitivas (traje, corbata y maletín). Pies en y=0, mira a +Z.
+    static Emprendedor BuildEmprendedorPrimitivas(Transform parent)
     {
         var traje   = MatSimple("EmpTraje",   new Color(0.13f, 0.17f, 0.32f), 0.35f);
         var camisa  = MatSimple("EmpCamisa",  new Color(0.95f, 0.95f, 0.97f), 0.2f);
