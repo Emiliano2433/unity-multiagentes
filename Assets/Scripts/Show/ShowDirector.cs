@@ -976,6 +976,12 @@ public class ShowDirector : MonoBehaviour
         data.renderPostProcessing = true;
         data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
 
+#if UNITY_EDITOR
+        // En el editor los shaders se compilan en segundo plano: la primera vez que se abre el proyecto
+        // (o tras importar modelos nuevos) las fotos salían vacías. Se compilan de forma síncrona aquí.
+        bool asincrono = UnityEditor.ShaderUtil.allowAsyncCompilation;
+        UnityEditor.ShaderUtil.allowAsyncCompilation = false;
+#endif
         Vector3 pitch = escenario.barco.TransformPoint(escenario.PuntoPitch) + Vector3.up * 1.5f;
         for (int i = 0; i < escenario.sharks.Length; i++)
         {
@@ -985,6 +991,9 @@ public class ShowDirector : MonoBehaviour
             Fotografiar(cam, FormatoShow.Clave(sh.nombre), c, pitch - c, sh.altura);
         }
         Fotografiar(cam, "emprendedor", escenario.CabezaEmprendedor(), escenario.emprendedor.transform.forward, 1.78f);
+#if UNITY_EDITOR
+        UnityEditor.ShaderUtil.allowAsyncCompilation = asincrono;
+#endif
         Destroy(go);
         _ui.Fotos(_fotos);
         var orden = escenario.sharks.Where(x => x.personaje != null)
