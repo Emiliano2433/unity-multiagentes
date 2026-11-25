@@ -455,9 +455,15 @@ public class ShowInput : MonoBehaviour
             suf.text = sufijo; der = 50;
         }
 
+        // InputField crea el cursor como primer hijo del padre del texto. Un contenedor
+        // separado lo mantiene encima del fondo opaco y debajo del texto.
+        var contenido = new GameObject("Contenido", typeof(RectTransform)).GetComponent<RectTransform>();
+        contenido.SetParent(caja, false);
+        EstiloUI.Llenar(contenido);
+
         Text Hijo(string n, Color c, FontStyle st)
         {
-            var t = EstiloUI.Texto(caja, n, fontSize, multilinea ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft, c, st);
+            var t = EstiloUI.Texto(contenido, n, fontSize, multilinea ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft, c, st);
             EstiloUI.Llenar(t.rectTransform, izq, multilinea ? 12 : 4, der, multilinea ? 12 : 4);
             t.horizontalOverflow = multilinea ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Truncate;
@@ -475,7 +481,7 @@ public class ShowInput : MonoBehaviour
         f.placeholder = ph;
         f.lineType = multilinea ? InputField.LineType.MultiLineNewline : InputField.LineType.SingleLine;
         f.characterLimit = multilinea ? 6000 : 120;
-        f.caretWidth = 2;
+        f.caretWidth = 3;
         f.customCaretColor = true;
         f.caretColor = EstiloUI.Dorado;
         f.selectionColor = new Color(1f, 0.79f, 0.27f, 0.35f);
