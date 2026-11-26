@@ -203,6 +203,12 @@ public class ShowInput : MonoBehaviour
             var a = EstiloUI.Texto(celda, "Apodo", 14, TextAnchor.UpperCenter, color, FontStyle.Italic);
             EstiloUI.Ubicar(a.rectTransform, new Vector2(0.5f, 1), new Vector2(0, -tam - 54), new Vector2(paso + 4, 40), new Vector2(0.5f, 1));
             a.text = FormatoShow.Apodo(nombre);
+            // Especialidad: va debajo del apodo (que puede ocupar 2 líneas) como una "etiqueta"
+            // en mayúsculas y dorado, para que se lea como dato de negocio y no como otro apodo.
+            var esp = EstiloUI.Texto(celda, "Especialidad", 12, TextAnchor.UpperCenter, EstiloUI.Dorado, FontStyle.Bold);
+            EstiloUI.Ubicar(esp.rectTransform, new Vector2(0.5f, 1), new Vector2(0, -tam - 98), new Vector2(paso + 4, 36), new Vector2(0.5f, 1));
+            esp.text = FormatoShow.Especialidad(nombre).ToUpperInvariant();
+            esp.lineSpacing = 0.9f;
             _fotosSharks.Add((foto, clave, nombre, color));
         }
     }
