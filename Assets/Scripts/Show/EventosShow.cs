@@ -137,6 +137,23 @@ public static class FormatoShow
         }
     }
 
+    /// Especialidad corta de cada Shark para la tarjeta del formulario. Se muestra en
+    /// pantalla para que el emprendedor sepa de antemano qué va a revisar cada uno; debe
+    /// coincidir con PerfilShark.especialidad en SharkTank/backend/sharks.py (aquí en versión
+    /// corta porque la celda de la tarjeta es angosta).
+    public static string Especialidad(string nombre)
+    {
+        switch (Clave(nombre))
+        {
+            case "luffy": return "Marketing y marca";
+            case "zoro": return "Manufactura y operaciones";
+            case "shanks": return "Ventas y alianzas";
+            case "barbablanca": return "Talento y cultura";
+            case "arlong": return "Finanzas";
+            default: return "";
+        }
+    }
+
     /// Parte un texto largo en páginas que caben en el cuadro de subtítulos, cortando en
     /// finales de oración o, si no hay, en espacios.
     public static List<string> Paginar(string texto, int maxChars = 330)
