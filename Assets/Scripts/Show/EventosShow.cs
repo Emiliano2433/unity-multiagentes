@@ -156,7 +156,7 @@ public static class FormatoShow
 
     /// Parte un texto largo en páginas que caben en el cuadro de subtítulos, cortando en
     /// finales de oración o, si no hay, en espacios.
-    public static List<string> Paginar(string texto, int maxChars = 330)
+    public static List<string> Paginar(string texto, int maxChars = 270)
     {
         var paginas = new List<string>();
         texto = (texto ?? "").Trim();

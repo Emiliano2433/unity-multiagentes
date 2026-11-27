@@ -98,6 +98,7 @@ public class ShowDirector : MonoBehaviour
 
         CrearFoco();
         CrearDesenfoque();
+        CrearColisionadores();
         ReiniciarEscena();
         StartCoroutine(TomarFotos());
         StartCoroutine(Sondear());
@@ -116,6 +117,22 @@ public class ShowDirector : MonoBehaviour
         int total = cfg.Length > 1 && int.TryParse(cfg[1], out var n) ? n : 60;
         File.Delete("Temp/op_capturas");
         if (cfg.Length > 2 && cfg[2].Trim() == "demo") AlternarDemo();
+        if (cfg.Length > 2 && cfg[2].Trim().StartsWith("clavado"))
+        {
+            // prueba del clavado: sin show, solo el Shark indicado (clavado:zoro)
+            string quien = cfg[2].Contains(":") ? cfg[2].Split(':')[1].Trim() : "zoro";
+            yield return new WaitForSeconds(2.5f);
+            _input.MostrarFormulario(false);
+            if (_show != null) StopCoroutine(_show);
+            int k = Idx(quien);
+            if (k >= 0)
+            {
+                Hablante(k, "interés bajo");
+                _ui.TextoSubtitulo("Estoy fuera.", 999);
+                _ui.Sello("ESTOY FUERA", FormatoShow.NombreBonito(quien) + "  ·  sin oferta", ShowUI.Rojo, 1.8f);
+                StartCoroutine(Clavado(k));
+            }
+        }
         if (cfg.Length > 3 && cfg[3].Trim() == "rapido") _rapido = true;
         foreach (var f in Directory.GetFiles("Logs", "show_*.png")) File.Delete(f);
         for (int i = 0; i < total; i++)
@@ -554,7 +571,12 @@ public class ShowDirector : MonoBehaviour
         if (dentro && s >= 0) Confeti(escenario.CabezaShark(s), 60);
         Hablante(s, etiqueta);
         _ui.TextoSubtitulo(dentro ? "Oferta: " + FormatoShow.Oferta(e.oferta) : "Sin oferta.", 999);
-        yield return Esperar(2.6f);
+        if (!dentro && s >= 0)
+        {
+            yield return Esperar(1.2f);
+            yield return Clavado(s);
+        }
+        else yield return Esperar(2.6f);
     }
 
     IEnumerator Eleccion(Evento e)
@@ -764,6 +786,7 @@ public class ShowDirector : MonoBehaviour
 
     void ReiniciarEscena()
     {
+        RegresarDelAgua();
         _autorPregunta.Clear();
         _preguntas.Clear();
         _llego = false;
@@ -800,6 +823,7 @@ public class ShowDirector : MonoBehaviour
     void Plano(Func<EscenarioPitch.Plano> plano, float mezcla = 0.6f)
     {
         _plano = plano;
+        _despejeHasta = 0f;
         _desdePos = camara.transform.position;
         _desdeRot = camara.transform.rotation;
         _desdeFov = camara.fieldOfView;
@@ -819,6 +843,7 @@ public class ShowDirector : MonoBehaviour
         if (dirigida)
         {
             var p = _plano();
+            p.pos = Despejar(p.mira, p.pos);
             var oc = OceanWaves.Instance;
             if (oc != null) p.pos.y = Mathf.Max(p.pos.y, oc.HeightAt(p.pos) + 0.9f);
             // pequeño movimiento de cámara en mano
@@ -863,7 +888,7 @@ public class ShowDirector : MonoBehaviour
         for (int i = 0; i < escenario.sharks.Length; i++)
         {
             var tr = escenario.sharks[i].personaje;
-            if (tr == null) continue;
+            if (tr == null || _alAgua.ContainsKey(i)) continue;
             Quaternion objetivo = _rotBaseShark[i];
             if (i == _hablante && _hablandoActivo)
                 objetivo *= Quaternion.Euler(Mathf.Sin(t * 7f) * 2.2f + 1.5f, Mathf.Sin(t * 2.1f) * 4f, Mathf.Sin(t * 3.3f) * 1.2f);
@@ -1012,5 +1037,254 @@ public class ShowDirector : MonoBehaviour
         cam.Render();
         cam.targetTexture = null;
         _fotos[clave] = rt;
+    }
+
+    // ================================================================ cámaras que no se quedan tapadas
+
+    int _mascaraOclusion = ~0;
+    Quaternion _despejeGiro = Quaternion.identity;
+    float _despejeSubir, _despejeAcercar = 1f, _despejeHasta;
+
+    /// Colisionadores (solo para las cámaras) en el barco, las sillas y los Sharks. El barco lleva un
+    /// Rigidbody cinemático para que moverlo con las olas no sea costoso.
+    void CrearColisionadores()
+    {
+        const int capa = 31;   // capa propia solo para estas colisiones
+        _mascaraOclusion = 1 << capa;
+        // (en Unity "??" no sirve con componentes: un componente faltante no es null de C#)
+        if (!escenario.barco.TryGetComponent<Rigidbody>(out var rb)) rb = escenario.barco.gameObject.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        rb.interpolation = RigidbodyInterpolation.None;
+
+        Transform empTr = escenario.emprendedor != null ? escenario.emprendedor.transform : null;
+        foreach (var mf in escenario.barco.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (mf.sharedMesh == null || (empTr != null && mf.transform.IsChildOf(empTr))) continue;
+            if (mf.GetComponent<ParticleSystem>() != null) continue;
+            AgregarColision(mf.gameObject, mf.sharedMesh, capa);
+        }
+        // modelos con esqueleto (Arlong): una malla horneada en su pose actual
+        foreach (var smr in escenario.barco.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            if (smr.sharedMesh == null || (empTr != null && smr.transform.IsChildOf(empTr))) continue;
+            var m = new Mesh { name = smr.sharedMesh.name + " (colision)" };
+            smr.BakeMesh(m, true);
+            AgregarColision(smr.gameObject, m, capa);
+        }
+    }
+
+    static void AgregarColision(GameObject go, Mesh malla, int capa)
+    {
+        // en un hijo propio, para no cambiar la capa del objeto que se dibuja
+        var c = new GameObject("Colision camara");
+        c.layer = capa;
+        c.transform.SetParent(go.transform, false);
+        var mc = c.AddComponent<MeshCollider>();
+        mc.sharedMesh = malla;
+    }
+
+    /// Si algo tapa la vista entre la cámara y lo que enfoca, prueba otros ángulos alrededor;
+    /// si ninguno está libre, acerca la cámara. La decisión se mantiene un rato para no titubear.
+    Vector3 Despejar(Vector3 foco, Vector3 deseada)
+    {
+        Vector3 d = deseada - foco;
+        float dist = d.magnitude;
+        if (dist < 0.3f) return deseada;
+        if (Time.time >= _despejeHasta)
+        {
+            _despejeHasta = Time.time + 0.5f;
+            _despejeGiro = Quaternion.identity; _despejeSubir = 0f; _despejeAcercar = 1f;
+            if (Tapado(foco, deseada))
+            {
+                bool listo = false;
+                foreach (float subir in new[] { 0f, 0.35f, 0.7f })
+                {
+                    foreach (float ang in new[] { 20f, -20f, 40f, -40f, 65f, -65f, 95f, -95f })
+                    {
+                        var q = Quaternion.AngleAxis(ang, Vector3.up);
+                        Vector3 cand = foco + q * d + Vector3.up * dist * subir;
+                        if (!Tapado(foco, cand)) { _despejeGiro = q; _despejeSubir = subir; listo = true; break; }
+                    }
+                    if (listo) break;
+                }
+                if (!listo)
+                {
+                    Vector3 dir = d / dist;
+                    if (Physics.SphereCast(foco + dir * 0.35f, 0.14f, dir, out var hit, dist - 0.35f, _mascaraOclusion, QueryTriggerInteraction.Ignore))
+                        _despejeAcercar = Mathf.Clamp01((hit.distance + 0.35f - 0.25f) / dist);
+                }
+            }
+        }
+        Vector3 res = foco + _despejeGiro * d * _despejeAcercar + Vector3.up * dist * _despejeSubir;
+        return res;
+    }
+
+    bool Tapado(Vector3 foco, Vector3 cam)
+    {
+        Vector3 d = cam - foco;
+        float dist = d.magnitude;
+        if (dist < 0.5f) return false;
+        Vector3 dir = d / dist;
+        // empieza un poco fuera de la cabeza de quien se enfoca para no chocar con su propio pelo
+        return Physics.SphereCast(foco + dir * 0.35f, 0.14f, dir, out _, dist - 0.35f, _mascaraOclusion, QueryTriggerInteraction.Ignore);
+    }
+
+    // ================================================================ clavado de los que están "fuera"
+
+    struct PoseOriginal { public Transform padre; public Vector3 pos, escala; public Quaternion rot; }
+    readonly Dictionary<int, PoseOriginal> _alAgua = new();
+    float _medioManga = -1f;
+
+    /// Media manga del barco (en su espacio local), para saber cuánto hay que saltar para librar el casco.
+    float MedioManga()
+    {
+        if (_medioManga > 0) return _medioManga;
+        _medioManga = 5f;
+        var modelo = escenario.barco.Find("Modelo Going Merry");
+        if (modelo == null) return _medioManga;
+        float max = 0;
+        foreach (var r in modelo.GetComponentsInChildren<Renderer>())
+        {
+            var b = r.bounds;
+            for (int k = 0; k < 8; k++)
+            {
+                var esquina = new Vector3((k & 1) == 0 ? b.min.x : b.max.x, (k & 2) == 0 ? b.min.y : b.max.y, (k & 4) == 0 ? b.min.z : b.max.z);
+                max = Mathf.Max(max, Mathf.Abs(escenario.barco.InverseTransformPoint(esquina).z));
+            }
+        }
+        if (max > 0.5f) _medioManga = max * 0.8f;   // sin contar velas/vergas que sobresalen
+        return _medioManga;
+    }
+
+    /// El Shark se levanta, corre hacia la borda y se avienta un clavado al mar.
+    IEnumerator Clavado(int s)
+    {
+        var sh = escenario.sharks[s];
+        var tr = sh.personaje;
+        if (tr == null || _alAgua.ContainsKey(s)) yield break;
+        _alAgua[s] = new PoseOriginal { padre = tr.parent, pos = tr.localPosition, rot = tr.localRotation, escala = tr.localScale };
+
+        var barco = escenario.barco;
+        Vector3 inicioLocal = barco.InverseTransformPoint(tr.position);
+        float lado = inicioLocal.z >= 0 ? 1f : -1f;
+        if (Mathf.Abs(inicioLocal.z) < 0.6f) lado = -Mathf.Sign(escenario.ladoEscalera.z == 0 ? -1f : escenario.ladoEscalera.z);   // el del centro salta por el lado sin escalera
+        Vector3 haciaFuera = barco.TransformDirection(new Vector3(0, 0, lado)).normalized;
+        Vector3 proa = barco.TransformDirection(Vector3.right).normalized;
+
+        tr.SetParent(null, true);
+        Vector3 inicio = tr.position;
+        float alto = Mathf.Max(1f, sh.altura);
+        Vector3 destinoLocal = new Vector3(inicioLocal.x, inicioLocal.y, lado * (MedioManga() + 2.5f + alto * 0.5f));
+        Vector3 destino = barco.TransformPoint(destinoLocal);
+        var oc = OceanWaves.Instance;
+        float agua = oc != null ? oc.HeightAt(destino) : 0f;
+        destino.y = agua;
+        Quaternion mirarFuera = Quaternion.LookRotation(haciaFuera, Vector3.up);
+        Quaternion rot0 = tr.rotation;
+
+        // cámara fija desde el mar: encuadra la borda y el punto del chapuzón, y sigue un poco al que salta
+        Vector3 borda = barco.TransformPoint(new Vector3(inicioLocal.x, inicioLocal.y + 1.2f, lado * MedioManga()));
+        Vector3 centro = Vector3.Lerp(borda, destino, 0.45f) + Vector3.up * 0.5f;
+        float lejos = 8f + alto * 2f;
+        Vector3 camPos = centro + haciaFuera * lejos + proa * lejos * 0.6f;
+        camPos.y = Mathf.Max(camPos.y + 2f, borda.y + 1.2f);   // por encima de la borda para ver la salida
+        _ui.OcultarSubtitulo();
+        _hablante = int.MinValue;
+        Plano(() =>
+        {
+            Vector3 m = Vector3.Lerp(centro, tr.position + Vector3.up * alto * 0.4f, 0.65f);
+            m.y = Mathf.Max(m.y, agua + 1.5f);
+            return new EscenarioPitch.Plano(camPos, m, 40f);
+        }, 0.6f);
+
+        float T(float seg) => seg / Vel;
+        // 1) se levanta y gira hacia el mar
+        float t = 0, dur = T(0.55f);
+        while (t < dur)
+        {
+            t += Time.deltaTime; float k = Mathf.SmoothStep(0, 1, t / dur);
+            tr.position = inicio + Vector3.up * 0.35f * k;
+            tr.rotation = Quaternion.Slerp(rot0, mirarFuera, k);
+            yield return null;
+        }
+        // 2) salto en arco con voltereta de cabeza
+        _voces.Efecto("silbido", 0.9f);
+        Vector3 a = tr.position;
+        float apice = Mathf.Max(a.y, barco.TransformPoint(new Vector3(inicioLocal.x, inicioLocal.y + 1.5f, lado * MedioManga())).y) + 2.2f + alto * 0.3f;
+        Vector3 eje = Vector3.Cross(Vector3.up, haciaFuera).normalized;
+        t = 0; dur = T(1.35f + alto * 0.12f);
+        bool saltado = false;
+        while (t < dur)
+        {
+            if (_saltar) { _saltar = false; saltado = true; t = dur; }
+            t += Time.deltaTime; float k = Mathf.Clamp01(t / dur);
+            Vector3 horiz = Vector3.Lerp(new Vector3(a.x, 0, a.z), new Vector3(destino.x, 0, destino.z), k);
+            // parábola por tres alturas: salida, ápice y agua
+            float y = (1 - k) * (1 - k) * a.y + 2 * (1 - k) * k * (2 * apice - 0.5f * (a.y + destino.y)) + k * k * (destino.y - alto * 0.3f);
+            tr.position = new Vector3(horiz.x, y, horiz.z);
+            float giro = Mathf.SmoothStep(0, 1, Mathf.Clamp01((k - 0.1f) / 0.85f)) * 160f;   // termina de cabeza
+            tr.rotation = Quaternion.AngleAxis(giro, eje) * mirarFuera;
+            yield return null;
+        }
+        // 3) chapuzón y se hunde
+        destino.y = oc != null ? oc.HeightAt(destino) : destino.y;
+        _voces.Efecto("splash");
+        Salpicadura(destino, alto);
+        Vector3 b0 = tr.position;
+        t = 0; dur = saltado ? 0.01f : T(0.7f);
+        while (t < dur)
+        {
+            t += Time.deltaTime; float k = Mathf.Clamp01(t / dur);
+            tr.position = b0 + Vector3.down * (alto * 1.4f) * k;
+            yield return null;
+        }
+        tr.gameObject.SetActive(false);
+        yield return Esperar(0.9f);
+    }
+
+    void Salpicadura(Vector3 donde, float alto)
+    {
+        var go = new GameObject("Salpicadura");
+        go.transform.position = donde + Vector3.up * 0.1f;
+        var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main;
+        main.duration = 0.3f; main.loop = false;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.7f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(3f + alto, 7f + alto * 1.5f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.18f, 0.5f + alto * 0.1f);
+        main.gravityModifier = 1.1f;
+        main.startColor = new Color(0.92f, 0.97f, 1f, 0.9f);
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.stopAction = ParticleSystemStopAction.Destroy;
+        var em = ps.emission; em.rateOverTime = 0;
+        em.SetBursts(new[] { new ParticleSystem.Burst(0, (short)(140 + alto * 40)) });
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 22f; sh.radius = 0.35f + alto * 0.12f;
+        sh.rotation = new Vector3(-90, 0, 0);
+        var col = ps.colorOverLifetime; col.enabled = true;
+        var g = new Gradient();
+        g.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(new Color(0.8f, 0.9f, 1f), 1) },
+                  new[] { new GradientAlphaKey(0.95f, 0), new GradientAlphaKey(0.8f, 0.6f), new GradientAlphaKey(0, 1) });
+        col.color = g;
+        var r = go.GetComponent<ParticleSystemRenderer>();
+        if (materialParticulas != null) r.sharedMaterial = materialParticulas;
+        ps.Play();
+    }
+
+    /// Regresa a su silla a los Sharks que se aventaron al agua (al empezar otra sesión).
+    void RegresarDelAgua()
+    {
+        foreach (var kv in _alAgua)
+        {
+            var tr = escenario.sharks[kv.Key].personaje;
+            if (tr == null) continue;
+            tr.gameObject.SetActive(true);
+            tr.SetParent(kv.Value.padre, false);
+            tr.localPosition = kv.Value.pos;
+            tr.localRotation = kv.Value.rot;
+            tr.localScale = kv.Value.escala;
+        }
+        _alAgua.Clear();
     }
 }

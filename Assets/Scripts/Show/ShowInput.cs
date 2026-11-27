@@ -284,7 +284,7 @@ public class ShowInput : MonoBehaviour
         _respNombre.text = "Responde a " + bonito;
         _respNombreFondo.color = color;
         _respNombre.color = EstiloUI.TextoSobre(color);
-        _respNombreCaja.sizeDelta = new Vector2(Mathf.Clamp(_respNombre.text.Length * 14f + 60, 240, 640), 52);
+        _respNombreCaja.sizeDelta = new Vector2(Mathf.Clamp(_respNombre.preferredWidth + 56, 200, 760), 52);
         _respPregunta.text = string.IsNullOrEmpty(pregunta) ? "" : "“" + pregunta + "”";
         _respuesta.text = "";
         _respError.text = "";

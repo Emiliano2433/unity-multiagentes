@@ -127,7 +127,12 @@ public class ShowUI : MonoBehaviour
 
         // Texto
         _texto = EstiloUI.Texto(_dlg, "Texto", 31, TextAnchor.UpperLeft, EstiloUI.TextoClaro);
-        _texto.lineSpacing = 1.12f;
+        _texto.lineSpacing = 1.1f;
+        // si una página no cabe, la letra se achica en vez de salirse del cuadro
+        _texto.resizeTextForBestFit = true;
+        _texto.resizeTextMinSize = 21;
+        _texto.resizeTextMaxSize = 31;
+        _texto.verticalOverflow = VerticalWrapMode.Truncate;
         EstiloUI.Llenar(_texto.rectTransform, 262, 34, 54, 46);
 
         // Página e indicador de "siguiente" (rombo que rebota)
@@ -147,7 +152,7 @@ public class ShowUI : MonoBehaviour
     {
         // ---- Barra de etapas
         float ancho = 0; var anchos = new List<float>();
-        foreach (var n in NombresPasos) { float w = 70 + n.Length * 13f; anchos.Add(w); ancho += w; }
+        foreach (var n in NombresPasos) { float w = 44 + AnchoTexto($"{NombresPasos.Length}  {n}", 21, FontStyle.Bold); anchos.Add(w); ancho += w; }
         ancho += 8 * (NombresPasos.Length - 1) + 16;
         _etapas = EstiloUI.Panel(_root, "Etapas", new Color(0.04f, 0.05f, 0.09f, 0.82f), 26, true);
         EstiloUI.Ubicar(_etapas, new Vector2(0.5f, 1), new Vector2(0, -22), new Vector2(ancho, 56), new Vector2(0.5f, 1));
@@ -368,6 +373,19 @@ public class ShowUI : MonoBehaviour
         _retCam.transform.SetPositionAndRotation(pos, rot);
     }
 
+    /// Ancho real (en px de referencia) que ocupa un texto con la fuente de la UI.
+    static float AnchoTexto(string texto, int tam, FontStyle estilo)
+    {
+        var gen = new TextGenerator();
+        var cfg = new TextGenerationSettings
+        {
+            font = EstiloUI.Fuente, fontSize = tam, fontStyle = estilo, scaleFactor = 1f, lineSpacing = 1f,
+            richText = true, horizontalOverflow = HorizontalWrapMode.Overflow, verticalOverflow = VerticalWrapMode.Overflow,
+            generationExtents = new Vector2(4000, 200), pivot = Vector2.zero, textAnchor = TextAnchor.MiddleLeft, color = Color.white
+        };
+        return gen.GetPreferredWidth(texto, cfg);
+    }
+
     // ================================================================ API
 
     public void Estado(string texto, Color color)
@@ -375,7 +393,7 @@ public class ShowUI : MonoBehaviour
         texto = (texto ?? "").TrimStart('●', '○', ' ');   // el punto de color ya lo dibuja la UI
         _estado.text = texto;
         _estadoPunto.color = color;
-        float ancho = Mathf.Clamp(texto.Length * 8.6f + 60, 220, 760);
+        float ancho = Mathf.Clamp(_estado.preferredWidth + 56, 160, 900);
         ((RectTransform)_estado.transform.parent).sizeDelta = new Vector2(ancho, 36);
     }
 
@@ -403,7 +421,7 @@ public class ShowUI : MonoBehaviour
         }
         _detalleCaja.gameObject.SetActive(detalle.Length > 0);
         _detalle.text = detalle.ToUpperInvariant();
-        _detalleCaja.sizeDelta = new Vector2(Mathf.Max(220, detalle.Length * 12.5f + 60), 38);
+        _detalleCaja.sizeDelta = new Vector2(Mathf.Max(160, _detalle.preferredWidth + 48), 38);
     }
 
     public void Solicitud(string nombre, float monto, float porcentaje)
@@ -438,7 +456,7 @@ public class ShowUI : MonoBehaviour
         _nombre.text = string.IsNullOrEmpty(nombre) ? "…" : nombre;
         _nombreFondo.color = color;
         _nombre.color = EstiloUI.TextoSobre(color);
-        float ancho = Mathf.Clamp(_nombre.text.Length * 17f + 64f, 150f, 560f);
+        float ancho = Mathf.Clamp(_nombre.preferredWidth + 56f, 140f, 640f);
         _nombreCaja.sizeDelta = new Vector2(ancho, 54);
         _retratoMarco.color = color;
         _inicial.text = string.IsNullOrEmpty(nombre) ? "?" : nombre.Substring(0, 1).ToUpperInvariant();
@@ -448,7 +466,7 @@ public class ShowUI : MonoBehaviour
         _etiqueta.text = etiqueta ?? "";
         _etiquetaCaja.gameObject.SetActive(!string.IsNullOrEmpty(etiqueta));
         _etiquetaCaja.anchoredPosition = new Vector2(252 + ancho + 14, 14);
-        _etiquetaCaja.sizeDelta = new Vector2(Mathf.Clamp(_etiqueta.text.Length * 10.5f + 40, 90, 520), 34);
+        _etiquetaCaja.sizeDelta = new Vector2(Mathf.Clamp(_etiqueta.preferredWidth + 36, 80, 640), 34);
         _texto.text = "";
         _pagina.text = "";
         _paginaCompleta = false;

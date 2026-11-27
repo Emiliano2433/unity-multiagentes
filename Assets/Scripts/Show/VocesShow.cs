@@ -58,6 +58,8 @@ public class VocesShow : MonoBehaviour
         _efectos["dentro"]  = Efecto("dentro", 0.75f, (t, d) => Arpegio(t, new[] { 523.25f, 659.25f, 783.99f, 1046.5f }, 0.075f, 0.45f));
         _efectos["fuera"]   = Efecto("fuera", 0.6f, (t, d) => Arpegio(t, new[] { 311.13f, 233.08f }, 0.16f, 0.4f, 0.6f));
         _efectos["trato"]   = Efecto("trato", 1.3f, (t, d) => Arpegio(t, new[] { 523.25f, 659.25f, 783.99f, 1046.5f, 1318.5f, 1567.98f }, 0.07f, 0.8f) + Brillo(t) * 0.12f);
+        _efectos["silbido"] = Efecto("silbido", 1.3f, (t, d) => Seno(Mathf.Lerp(1500f, 420f, Mathf.Pow(t / d, 0.8f)), t) * Mathf.Clamp01(t / 0.05f) * Mathf.Clamp01((d - t) / 0.2f) * 0.32f);
+        _efectos["splash"]  = Efecto("splash", 1.1f, Chapuzon);
         _efectos["turno"]   = Efecto("turno", 0.16f, (t, d) => (Seno(880, t) + 0.5f * Seno(1320, t)) * Env(t, d, 0.003f) * 0.3f);
     }
 
@@ -191,6 +193,23 @@ public class VocesShow : MonoBehaviour
         float f = Mathf.Lerp(220f, 900f, x);
         float ruido = Mathf.PerlinNoise(t * f * 0.12f, 0.3f) * 2 - 1;
         return (ruido * 0.6f + Seno(f * 0.5f, t) * 0.1f) * env * 0.35f;
+    }
+
+    /// Chapuzón: golpe grave + ruido espumoso que se apaga, con gotitas al final.
+    static float Chapuzon(float t, float d)
+    {
+        float golpe = Seno(Mathf.Lerp(140f, 55f, t / 0.25f), t) * Mathf.Exp(-t / 0.09f) * 0.9f;
+        float ruido = (Mathf.PerlinNoise(t * 3100f, 1.7f) * 2 - 1) * 0.8f + (Mathf.PerlinNoise(t * 7300f, 4.1f) * 2 - 1) * 0.4f;
+        float espuma = ruido * Mathf.Clamp01(t / 0.01f) * Mathf.Exp(-t / 0.28f) * 0.7f;
+        float gotas = 0;
+        for (int i = 0; i < 5; i++)
+        {
+            float t0 = 0.35f + i * 0.11f;
+            if (t < t0) break;
+            float tt = t - t0;
+            gotas += Seno(900f + i * 170f + 400f * Mathf.Exp(-tt / 0.02f), tt) * Mathf.Exp(-tt / 0.03f) * 0.18f;
+        }
+        return golpe + espuma + gotas;
     }
 
     static float Brillo(float t)
